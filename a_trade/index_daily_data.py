@@ -8,8 +8,13 @@ from sqlalchemy import Column, String, Float
 from a_trade.db_base import Session, get_recent_trade_date_in_table, Base
 from a_trade.trade_calendar import TradeCalendar
 
-# 定义数据库模型
+# 缓存类的字典
+_index_daily_data_classes = {}
+
 def get_index_daily_data_class(table_name):
+    if table_name in _index_daily_data_classes:
+        return _index_daily_data_classes[table_name]
+
     class IndexDailyData(Base):
         __tablename__ = table_name
         ts_code = Column(String, primary_key=True)
@@ -23,6 +28,9 @@ def get_index_daily_data_class(table_name):
         pct_chg = Column(Float)
         vol = Column(Float)
         amount = Column(Float)
+    
+    # 缓存类
+    _index_daily_data_classes[table_name] = IndexDailyData
     return IndexDailyData
 
 # 获取指数日线
