@@ -28,10 +28,21 @@ Session = scoped_session(sessionmaker(bind=engine))  # 主数据库全局持久�
 Base.metadata.create_all(engine)
 
 # 备份数据库配置
-sync_db_path = db_dir / "sync.db"
-SYNC_DB_URL = f'sqlite:///{sync_db_path}'
-sync_engine = create_engine(SYNC_DB_URL, echo=False)
-Base.metadata.create_all(sync_engine)
+
+def get_sync_engine():
+    sync_db_path = db_dir / "sync.db"
+    SYNC_DB_URL = f'sqlite:///{sync_db_path}'
+    return create_engine(SYNC_DB_URL, echo=False)
+
+def initialize_sync_db():
+    engine = get_sync_engine()
+    Base.metadata.create_all(engine)
+    return engine
+
+def initialize_sync_db():
+    engine = get_sync_engine()
+    Base.metadata.create_all(engine)
+    return engine
 
 def add_column_for_table(table_name, column_name, column_type, default_value=None):
     """为已有的表添加列，若列已存在则跳过"""
@@ -164,6 +175,7 @@ def merge_db_data_from_base_to_sync():
     tables_to_sync = {
         'limit_reason_to_concept': ['limit_reason'],
     }
+    sync_engine = initialize_sync_db()
     for table_name, primary_key_columns in tables_to_sync.items():
         copy_table(
             source_engine=engine,
@@ -177,6 +189,7 @@ def merge_db_data_from_sync_to_base():
     tables_to_sync = {
         'limit_reason_to_concept': ['limit_reason'],
     }
+    sync_engine = initialize_sync_db()
     for table_name, primary_key_columns in tables_to_sync.items():
         copy_table(
             source_engine=sync_engine,
@@ -191,13 +204,4 @@ if __name__ == "__main__":
     # add_column_for_table('wechat_limit_article', 'image_url', TEXT)
     # rename_column('limit_reason_to_concept', 'TEXconcept_namesT', 'concept_names')
 
-    tables_to_sync = {
-        'limit_reason_to_concept': ['limit_reason'],
-    }
-    for table_name, primary_key_columns in tables_to_sync.items():
-        copy_table(
-            source_engine=engine,
-            target_engine=sync_engine,
-            table_name=table_name,
-            primary_key_columns=primary_key_columns
-        )
+    merge_db_data_from_base_to_sync()
