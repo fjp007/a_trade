@@ -9,6 +9,7 @@ import requests
 import pywencai
 import pandas as pd
 from typing import Optional
+import sys
 
 from a_trade.settings import _get_tushare
 from a_trade.trade_calendar import TradeCalendar
@@ -684,7 +685,6 @@ def fetch_reason_types_from_wencai_util(end_date):
     return last_full_empty_date
 
 if __name__ == "__main__":
-    import sys
     start_date = sys.argv[1]
     end_date = sys.argv[2]
     

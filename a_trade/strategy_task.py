@@ -79,8 +79,7 @@ class StrategyTask(ABC):
             assert sell_callback is not None, "sell_callback 不能为空"
             assert subscribe_callback is not None, "subscribe_callback 不能为空"
             assert unsubscribe_callback is not None, "unsubscribe_callback 不能为空"
-        else:
-            self.subscription = StockSubscriptionBus(trade_date)
+        self.subscription = StockSubscriptionBus(trade_date)
 
     def _enable_send_msg(self) -> bool:
         if self.run_mode == StrategyTaskMode.MODE_LIVE_EMQUANT:
