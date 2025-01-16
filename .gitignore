@@ -7,3 +7,5 @@ daily_report/
 strategy_result/
 *.log
 *.xlsx
+a_trade/__pycache__/
+*.py[cod]
