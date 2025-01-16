@@ -1,0 +1,9 @@
+# 忽略 db 文件夹中的所有内容
+db/
+# 忽略 media_data 文件夹中的所有内容
+media_data/
+log/
+daily_report/
+strategy_result/
+*.log
+*.xlsx
