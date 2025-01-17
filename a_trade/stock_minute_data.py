@@ -1,5 +1,6 @@
 # coding: utf-8
-from sqlalchemy import Column, String, Float, Integer, Date
+from sqlalchemy import Column, String, Float
+from sqlalchemy.orm import joinedload
 import tushare as ts
 import datetime
 from a_trade.db_base import Session, Base, engine

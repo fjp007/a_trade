@@ -105,7 +105,6 @@ class StrategyTask(ABC):
         success = self.subscription.unsubscribe(stock_code)
         if success and self.run_mode != StrategyTaskMode.MODE_BACKTEST_LOCAL:
             self.unsubscribe_callback(stock_code)
-        print(f"location: {stop_type}")
         if success and stop_type == SubscribeStopType.STOPTYPE_CANCEL and self._enable_send_msg():
             WechatBot.send_stop_subscribe_msg(stock_code)
 
@@ -213,13 +212,14 @@ class StrategyTask(ABC):
 
 class Strategy(ABC):
 
-    def __init__(self, start_date: str, end_date: str, observe_pool_cls: Type['ObservedStockPool'], trade_record_cl: Type['TradeRecord'], task_cls: Type['StrategyTask']):
+    def __init__(self, start_date: str, end_date: str, observe_pool_cls: Type['ObservedStockPool'], trade_record_cl: Type['TradeRecord'], task_cls: Type['StrategyTask'], mode: StrategyTaskMode = StrategyTaskMode.MODE_BACKTEST_LOCAL):
         super().__init__()
         self.start_date = start_date
         self.end_date = end_date
         self.observe_pool_cls = observe_pool_cls
         self.trade_record_cls = trade_record_cl
         self.task_cls = task_cls
+        self.run_mode = mode
 
     def analysis_observed_stocks_pool(self):
         self.clear_stock_pool()
@@ -318,13 +318,15 @@ class Strategy(ABC):
             total_years = total_days / 365  # 转换为年
 
             # 从数据库中获取交易记录
-            records = session.query(self.trade_record_cls).filter(
+            all_records = session.query(self.trade_record_cls).filter(
                 self.trade_record_cls.buy_time.between(start_time, end_time),
-                self.trade_record_cls.sold_out_price != None
             ).all()
-            if not records:
-                print(f"没有交易数据")
+            if not all_records:
+                logging.info(f"没有交易数据")
                 return
+            records = [record for record in all_records if record.sold_out_price!=None]
+            if len(records) < len(all_records) and self.run_mode == StrategyTaskMode.MODE_BACKTEST_LOCAL:
+                logging.warning(f"{self.start_date} - {self.end_date} 有未结算的交易数据")              
 
             # 总交易数
             total_count = len(records)
