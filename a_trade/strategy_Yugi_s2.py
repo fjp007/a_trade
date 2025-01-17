@@ -97,7 +97,7 @@ class StrategyYugiS2(Strategy):
                             self.total_count += 1
                             next_daily_data = get_stock_daily_data_for_day(stock_code, TradeCalendar.get_next_trade_date(trade_date))
                             
-                            if next_daily_data.high > next_daily_data.pre_close:
+                            if next_daily_data.close > next_daily_data.pre_close:
                                 self.success_count += 1
                                 print(f"[成功] {trade_date} {stock_limit_info.stock_name} {stock_limit_info.close} {next_daily_data.high} {next_daily_data.close} {first_open_time}")
                             else:

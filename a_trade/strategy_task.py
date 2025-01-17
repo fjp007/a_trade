@@ -23,7 +23,7 @@ class TradeRecord(Base):
     __abstract__ = True
 
     stock_code = Column(String, primary_key=True)
-    stock_name  = Column(String, nullable=False)
+    stock_name = Column(String, nullable=False)
     buy_time = Column(DateTime, primary_key=True)
     buy_price = Column(Float, nullable=False)
     buy_date_status = Column(String)
