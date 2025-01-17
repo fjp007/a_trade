@@ -58,7 +58,7 @@ def update_limit_daily_attribution_during(start_date, end_date):
     
     # _update_concept_analysis_data(start_date, end_date)
     global file_manager
-    file_path = get_project_path() / '归因失败股票.xlsx'
+    file_path = get_project_path() / 'limit_attribution_failed.xlsx'
     file_manager = XLSXFileManager(file_path, "失败归因股票", ["交易日", "股票代码", "股票名称", "涨停原因"], [0, 1], True)
     TradeCalendar.iterate_trade_days(start_date, end_date,_update_limit_daily_attribution_for_day)
     _update_failed_limit_daily_attribution_during(start_date, end_date)

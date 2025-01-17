@@ -24,7 +24,7 @@ Base = declarative_base()
 trade_db_path = db_dir / "a_data.db"
 TRADE_DB_URL = f'sqlite:///{trade_db_path}'
 engine = create_engine(TRADE_DB_URL, echo=False)
-Session = scoped_session(sessionmaker(bind=engine))  # 主数据库全局持久化 Session
+Session = sessionmaker(bind=engine)  # 主数据库全局持久化 Session
 Base.metadata.create_all(engine)
 
 # 备份数据库配置

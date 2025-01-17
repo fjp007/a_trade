@@ -189,9 +189,12 @@ class StrategyTaskYugiS1(StrategyTask):
             observed_stock_pool_to_buy = session.query(ObservedStockPoolS1).filter(
                 ObservedStockPoolS1.trade_date == self.pre_trade_date
             ).all()
-            
+            target_time = datetime.datetime.strptime(self.trade_date, '%Y%m%d')
+            one_month_ago = target_time - datetime.timedelta(days=30)
             observed_stock_pool_to_sold = session.query(TradeRecordS1).filter(
-                TradeRecordS1.sold_out_price == None
+                TradeRecordS1.sold_out_price == None,
+                TradeRecordS1.buy_time >= one_month_ago,
+                TradeRecordS1.buy_time < target_time
             ).all()
             
             self.observe_stocks_to_buy = {
@@ -212,8 +215,8 @@ class StrategyTaskYugiS1(StrategyTask):
                 observer_sold_info.pre_close = pre_daily_data.close
                 self.pre_stock_daily_map[pre_daily_data.ts_code] = pre_daily_data
         
-            logging.info(f"{self.trade_date} 买入观察池股票准备完成，共 {len(self.observe_stocks_to_buy)} 只股票")
-            logging.info(f"{self.trade_date} 持仓观察池股票准备完成，共 {len(self.observe_stocks_to_sell)} 只股票")
+            logging.info(f"{self.trade_date} 买入观察池股票准备完成，共 {len(self.observe_stocks_to_buy)} 只股票  {self.observe_stocks_to_buy.keys()}")
+            logging.info(f"{self.trade_date} 持仓观察池股票准备完成，共 {len(self.observe_stocks_to_sell)} 只股票 {self.observe_stocks_to_sell.keys()}")
             logging.info(f"开始微信通知 {self._enable_send_msg()}")
             if self._enable_send_msg():
                 # 1) 整理“买入观察池”列表
@@ -292,7 +295,7 @@ class StrategyTaskYugiS1(StrategyTask):
                 observer_buy_info.stop_observe_price = observed_stock.close * 0.98
             else:
                 observer_buy_info.tactics_type = 1
-                observer_buy_info.buy_threshold = observed_stock.close
+                observer_buy_info.buy_threshold = observed_stock.close *1.01
                 observer_buy_info.stop_observe_price = observed_stock.close * (1 + buy_in_observe_dead_pch / 100)
 
             if observed_stock.is_t_limit and curent_open_rate >= next_date_open_rate_limit:
@@ -483,9 +486,13 @@ class StrategyTaskYugiS1(StrategyTask):
         observer_sold_info.is_sell = True
         self.stop_subscribe_buy_stock(stock_code, SubscribeStopType.STOPTYPE_SELL)
         with Session() as session:
+            target_time = datetime.datetime.strptime(self.trade_date, '%Y%m%d')
+            one_month_ago = target_time - datetime.timedelta(days=30)
             record = session.query(TradeRecordS1).filter(
                 TradeRecordS1.stock_code == stock_code,
-                TradeRecordS1.sold_out_price == None
+                TradeRecordS1.sold_out_price == None,
+                TradeRecordS1.buy_time < target_time,
+                TradeRecordS1.buy_time > one_month_ago,
             ).first()
             if record:
                 if self.run_mode == StrategyTaskMode.MODE_BACKTEST_LOCAL and sold_price == 0:
