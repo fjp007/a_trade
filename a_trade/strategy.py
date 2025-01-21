@@ -34,7 +34,7 @@ STRATEGY_DB_PORT = os.getenv('STRATEGY_DB_PORT', '5432')
 STRATEGY_DB_NAME = os.getenv('STRATEGY_DB_NAME')
 
 # 创建数据库 URL
-STRATEGY_DB_URL = f'postgresql+psycopg2://{STRATEGY_DB_USERNAME}:{STRATEGY_DB_PASSWORD}@{STRATEGY_DB_HOST}:{STRATEGY_DB_PORT}/{STRATEGY_DB_NAME}'
+STRATEGY_DB_URL = f'postgresql+pg8000://{STRATEGY_DB_USERNAME}:{STRATEGY_DB_PASSWORD}@{STRATEGY_DB_HOST}:{STRATEGY_DB_PORT}/{STRATEGY_DB_NAME}'
 logging.info(f"策略数据库地址: {STRATEGY_DB_URL}")
 # PostgreSQL 数据库连接配置
 strategy_engine = create_engine(STRATEGY_DB_URL, echo=False)
@@ -86,7 +86,7 @@ class StrategyObservationEntry(StrategyBase):
     entry_id = Column(Integer, primary_key=True, autoincrement=True)
     strategy_id = Column(Integer, nullable=False)
     version_id = Column(Integer, nullable=False)
-    trade_date = Column(Date, nullable=False)
+    trade_date = Column(String(8), nullable=False)
     stock_code = Column(String(20), nullable=False)
     stock_name = Column(String(100), nullable=False)
     

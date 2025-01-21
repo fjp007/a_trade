@@ -30,6 +30,7 @@ json-repair = "0.30.0"
 alembic = "^1.14.0"
 pydantic = "^2.10.5"
 psycopg2-binary = "^2.9.10"
+pg8000 = "^1.31.2"
 
 
 [build-system]

@@ -26,13 +26,6 @@ class ObservedStockS3Model(ObservationVarMode):
     ObservedStockS1Model 属性定义，使用 Pydantic 验证。
     """
     concept_name: Optional[str] = Field(None, description="概念名称")
-
-    # def __init__(self, start_date, end_date, observe_pool_cls, trade_record_cl, task_cls):
-    #     super().__init__(start_date, end_date, observe_pool_cls, trade_record_cl, task_cls)
-    #     self.total_count = 0
-    #     self.success_count = 0
-    #     self.limit_count = 0
-    #     print(f"买入日 股票名 上次连板数 今日近期涨停情况, 上次涨停近期情况 上次涨停距离今日交易日, 昨日收盘状态")
     
 class StrategyTaskYugiS3(StrategyTask):
     """
@@ -77,6 +70,10 @@ class StrategyYugiS3(Strategy):
     
     def __init__(self, task_cls: StrategyTask = StrategyTaskYugiS3, params: Type['StrategyParams'] = StrategyParamsYugiS3(), mode: StrategyTaskMode = StrategyTaskMode.MODE_BACKTEST_LOCAL):
         super().__init__(task_cls, params, mode)
+        self.total_count = 0
+        self.success_count = 0
+        self.limit_count = 0
+        print(f"买入日 股票名 上次连板数 今日近期涨停情况, 上次涨停近期情况 上次涨停距离今日交易日, 昨日收盘状态")
 
     def analysis_observed_stocks_pool_for_day(self, trade_date):
         limit_data_source = LimitDataSource(trade_date)
