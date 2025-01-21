@@ -6,9 +6,7 @@ import logging
 
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.stocks_daily_data import update_stocks_daily_data_until
-from a_trade.gem_index_daily_data import update_gem_index_daily_data_until
-from a_trade.sz_index_daily_data import update_sz_index_daily_data_until
-from a_trade.sci_tech_50_index_daily_data import update_sci_tech_50_index_daily_data_until
+from a_trade.index_daily_data import update_index_data_until
 from a_trade.limit_up_data_tushare import update_limit_up_data_until, fetch_reason_types_from_wencai_util, process_frequent_reasons_during
 from a_trade.market_analysis import update_market_daily_data_during
 from a_trade.market_chart import plot_market_indicators_recent_month
@@ -18,7 +16,7 @@ from a_trade.stock_base import update_new_stocks
 import a_trade.settings
 from a_trade.limit_attribution import update_limit_daily_attribution_during
 from a_trade.concept_daily_chart import plot_limit_up_concepts_chart
-from a_trade.strategy_Yugi_s1 import ObservedStockPoolS1, StrategyYugiS1
+from a_trade.strategy_Yugi_s1 import StrategyYugiS1
 from a_trade.db_base import merge_db_data_from_sync_to_base, merge_db_data_from_base_to_sync
 
 env = os.getenv('ENV')
@@ -30,8 +28,6 @@ def main(today=None):
     # 获取今天日期
     if not today:
         today = datetime.datetime.now().strftime("%Y%m%d")
-    # 更新交易日历
-    TradeCalendar.update_trade_calendar(today)
 
     if env == 'release':
         merge_db_data_from_sync_to_base()
@@ -51,9 +47,7 @@ def main(today=None):
     update_new_stocks(today)
     
     # 获取今天的指数数据并插入数据库
-    update_gem_index_daily_data_until(today)
-    update_sz_index_daily_data_until(today)
-    update_sci_tech_50_index_daily_data_until(today)
+    update_index_data_until(today)
     
     # 获取今日涨跌停数据并插入数据库
     limit_date_start_date = update_limit_up_data_until(today)
@@ -94,10 +88,13 @@ def main(today=None):
     #     send_msg('text', "今日复盘日报发送失败")
 
     start_date = last_full_empty_date if last_full_empty_date else today
-    strategy_YugiS1 = StrategyYugiS1(start_date, today)
-    strategy_YugiS1.analysis_observed_stocks_pool()
-    
-    ObservedStockPoolS1.daily_report(today)
+    strategy = StrategyYugiS1()
+    def run_strategy(trade_date):
+        task = strategy.generate_daily_task(trade_date)
+        task.trade_did_end()
+        if trade_date == today:
+            StrategyYugiS1().generate_daily_task(today).daily_report()
+    TradeCalendar.iterate_trade_days(start_date, today, run_strategy)
 
     if env == 'test':
         merge_db_data_from_base_to_sync()

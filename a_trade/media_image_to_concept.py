@@ -5,13 +5,14 @@ import logging
 import json
 from sqlalchemy import Column, String, Float, Integer, func, and_
 
-from a_trade.db_base import Base, engine, Session
+from a_trade.db_base import Base, engine, Session, String
 from a_trade.media_data_process import WechatLimitArticle, is_black_background
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.settings import get_project_path
 from a_trade.concept_llm_analysis import analyze_concept_datas_from_media_image
 from a_trade.limit_attribution import LimitDailyAttribution
 from a_trade.trade_utils import code_with_exchange
+from a_trade.limit_up_data_tushare import LimitDataSource
 
 class LimitDailyAttributionMedia(Base):
     # 涨停日内归因表
@@ -21,8 +22,13 @@ class LimitDailyAttributionMedia(Base):
     stock_name = Column(String, nullable=False)
     concept_name = Column(String, primary_key=True)
     category = Column(String)
+Base.metadata.create_all(engine)
 
 def translate_image_to_concept_for_day(trade_date):
+    # translate_image_to_json_for_day(trade_date)
+    traslate_json_to_db(trade_date)
+
+def translate_image_to_json_for_day(trade_date):
     image_dir = os.path.join(get_project_path(), 'media_data', trade_date, 'tables')
     logging.info(f"即将处理图片文件夹 {image_dir}")
     if not os.path.exists(image_dir):
@@ -31,11 +37,23 @@ def translate_image_to_concept_for_day(trade_date):
     
     black_image_path = None
     json_path = os.path.join(get_project_path(), 'media_data', trade_date, 'daily_concept.json')
+    # 如果json文件存在则删除
+    if os.path.exists(json_path):
+        try:
+            os.remove(json_path)
+            logging.info(f"已删除旧JSON文件: {json_path}")
+        except Exception as e:
+            logging.error(f"删除JSON文件失败: {json_path}, 错误: {e}")
+            
     # 遍历目录下的所有文件
     # 按文件名中的数字排序处理图片
     files = [f for f in os.listdir(image_dir) if f.startswith('table_') and f.endswith('.png')]
     # 提取文件名中的数字并排序
     files.sort(key=lambda x: x.split('_')[1].split('.')[0].zfill(2))
+    
+    # 跳过最后两张图片
+    if len(files) > 2:
+        files = files[:-2]
     
     for filename in files:
         file_path = os.path.join(image_dir, filename)
@@ -46,20 +64,26 @@ def translate_image_to_concept_for_day(trade_date):
                 json_data = analyze_concept_datas_from_media_image(file_path)
                 
                 # 处理JSON文件合并
-                existing_data = []
+                existing_data = {}
                 if os.path.exists(json_path):
                     try:
                         with open(json_path, 'r', encoding='utf-8') as f:
                             existing_data = json.load(f)
                     except json.JSONDecodeError:
                         logging.warning(f"JSON文件格式错误，将覆盖: {json_path}")
-                        existing_data = []
+                        existing_data = {}
                 
-                # 合并新数据
+                # 合并新数据，一级分类采用覆盖逻辑
                 if isinstance(json_data, list):
-                    existing_data.extend(json_data)
+                    # 如果是列表，遍历每个字典并合并
+                    for data_dict in json_data:
+                        for category, concepts in data_dict.items():
+                            # 直接覆盖一级分类下的所有数据
+                            existing_data[category] = concepts
                 else:
-                    existing_data.append(json_data)
+                    # 如果是字典，直接覆盖一级分类下的所有数据
+                    for category, concepts in json_data.items():
+                        existing_data[category] = concepts
                 
                 # 写入更新后的数据
                 with open(json_path, 'w', encoding='utf-8') as f:
@@ -70,8 +94,6 @@ def translate_image_to_concept_for_day(trade_date):
                 black_image_path = file_path
         except Exception as e:
             logging.error(f"处理图片失败: {file_path}, 错误: {e}")
-
-    traslate_json_to_db(trade_date)
 
 def traslate_json_to_db(trade_date):
     """
@@ -100,31 +122,58 @@ def traslate_json_to_db(trade_date):
         # 读取JSON文件
         with open(json_path, 'r', encoding='utf-8') as f:
             concept_data = json.load(f)
-
         # 将数据转换为LimitDailyAttributionMedia对象
         media_objects = []
-        
+        # 查询当日所有归因数据
+        existing_attributions = session.query(LimitDailyAttribution).filter(
+            LimitDailyAttribution.trade_date == trade_date
+        ).all()
+
+        # 构建股票归因旧数据映射，stock_name到(stock_code, concept_names)的映射
+        stock_concept_map = {}
+        for attribution in existing_attributions:
+            if attribution.stock_name not in stock_concept_map:
+                stock_concept_map[attribution.stock_name] = {
+                    'stock_code': attribution.stock_code,
+                    'concept_names': []
+                }
+            if attribution.concept_name not in stock_concept_map[attribution.stock_name]['concept_names']:
+                stock_concept_map[attribution.stock_name]['concept_names'].append(attribution.concept_name)
+
+        today_limit_source = LimitDataSource(trade_date)
+        name_code_map = today_limit_source.get_name_to_code()
+        def name_to_code(stock_name, stock_code):
+            if stock_name in name_code_map:
+                return name_code_map[stock_name]
+            else:
+                if stock_code and len(stock_code) == 6:
+                    code = code_with_exchange(stock_code)
+                    return code
+                assert False, f" {stock_name} {stock_code} 非法"
+
+        # 构建股票归因新数据映射
+        new_stock_concept_map = {}
         # 遍历一级分类
         for category, concepts in concept_data.items():
             # 如果category包含ignore_category中的任意元素，则跳过
             if any(ignore_cat in category for ignore_cat in ignore_category):
                 continue
-                
+            logging.info(f"处理一级分类 {category}")
             # 遍历每个概念
             for concept_name, stocks in concepts.items():
-                # 创建媒体对象
-                if '涨停被砸' not in concept_name:
-                    for stock_code, stock_name in stocks.items():
-                        media_obj = LimitDailyAttributionMedia(
-                            trade_date=trade_date,
-                            concept_name=concept_name,
-                            category=category,
-                            stock_code=code_with_exchange(stock_code),
-                            stock_name=stock_name
-                        )
-                        media_objects.append(media_obj)
-                else:
-                    for stock_name, _ in stocks.items():
+                logging.info(f"处理概念 {concept_name}")
+                if '涨停被砸' not in category:
+                    for code, stock_name in stocks.items():
+                        # 更新新数据映射
+                        stock_code =  name_to_code(stock_name, code)
+                        if stock_name not in new_stock_concept_map:
+                            new_stock_concept_map[stock_name] = {
+                                'stock_code': stock_code,
+                                'concept_names': []
+                            }
+                        if concept_name not in new_stock_concept_map[stock_name]['concept_names']:
+                            new_stock_concept_map[stock_name]['concept_names'].append(concept_name)
+                            
                         media_obj = LimitDailyAttributionMedia(
                             trade_date=trade_date,
                             concept_name=concept_name,
@@ -133,6 +182,44 @@ def traslate_json_to_db(trade_date):
                             stock_name=stock_name
                         )
                         media_objects.append(media_obj)
+                else:
+                    for stock_name, _ in stocks.items():
+                        # 更新新数据映射
+                        stock_code =  name_to_code(stock_name, None)
+                        # 处理概念名称，如果是"-"分割的，取最后一个元素
+                        if '-' in concept_name:
+                            split_concept_name = concept_name.split('-')[-1].strip()
+                        else:
+                            split_concept_name = concept_name
+                            
+                        if stock_name not in new_stock_concept_map:
+                            new_stock_concept_map[stock_name] = {
+                                'stock_code': stock_code,
+                                'concept_names': []
+                            }
+                        if split_concept_name not in new_stock_concept_map[stock_name]['concept_names']:
+                            new_stock_concept_map[stock_name]['concept_names'].append(split_concept_name)
+                            
+                        media_obj = LimitDailyAttributionMedia(
+                            trade_date=trade_date,
+                            concept_name=split_concept_name,
+                            category=category,
+                            stock_code=stock_code,
+                            stock_name=stock_name
+                        )
+                        media_objects.append(media_obj)
+
+        # 检查是否有旧数据里的股票但未被新数据归因
+        missing_stocks = []
+        for stock_name in stock_concept_map:
+            if stock_name not in new_stock_concept_map:
+                missing_stocks.append(stock_name)
+        
+        if missing_stocks:
+            logging.error(f"以下股票在旧数据中存在但未被新数据归因: {missing_stocks}")
+            session.rollback()
+            session.close()
+            raise ValueError(f"存在未归因的股票: {missing_stocks}")
 
         # 批量写入数据库
         session.bulk_save_objects(media_objects)
@@ -146,11 +233,23 @@ def traslate_json_to_db(trade_date):
         session.close()
 
 def translate_image_to_concept_during(start_date, end_date):
+    with Session() as session:
+        try:
+            # 删除指定日期范围内的数据
+            deleted_count = session.query(LimitDailyAttributionMedia).filter(
+                LimitDailyAttributionMedia.trade_date >= start_date,
+                LimitDailyAttributionMedia.trade_date <= end_date
+            ).delete()
+            
+            session.commit()
+            logging.info(f"成功清理{start_date}至{end_date}的LimitDailyAttributionMedia数据，共删除{deleted_count}条记录")
+        except Exception as e:
+            session.rollback()
+            logging.error(f"清理LimitDailyAttributionMedia数据失败: {e}")
     TradeCalendar.iterate_trade_days(start_date, end_date, translate_image_to_concept_for_day)
 
 if __name__ == '__main__':
     import sys
     start_date = sys.argv[1]
     end_date = sys.argv[2]
-    print(start_date)
     translate_image_to_concept_during(start_date, end_date)

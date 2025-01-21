@@ -153,15 +153,15 @@ def analyze_limit_up_reasons(start_date, end_date):
                         print(f" {trade_date}  {reason}: {count} 次")
 
 def clear_stock_name_in_db():
-    from a_trade.limit_attribution import LimitDailyAttribution
+    from a_trade.limit_up_data_tushare import LimitUpTushare
     from a_trade.trade_utils import strip_stock_name
     from a_trade.db_base import Session
 
     with Session() as session:
         try:
             # 查询所有带有空格的股票名称
-            stocks_with_spaces = session.query(LimitDailyAttribution).filter(
-                LimitDailyAttribution.stock_name.contains(' ')
+            stocks_with_spaces = session.query(LimitUpTushare).filter(
+                LimitUpTushare.stock_name.contains(' ')
             ).all()
 
             # 更新每个带有空格的股票名称

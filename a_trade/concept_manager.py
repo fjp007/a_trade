@@ -143,14 +143,15 @@ class ConceptManager:
                 for concept in results:
                     logging.info(f"板块: {concept.name}({concept.concept_code}) 缺少映射信息，即将请求")
                     ths_member_result = _get_tushare().pro_api().ths_member(ts_code=concept.concept_code)
+                    print(ths_member_result)
                     for _, row in ths_member_result.iterrows():
                         new_relation = ConceptStockRelation(
                             concept_code=concept.concept_code,
                             concept_name=concept.name,
-                            stock_code=row['code'],
-                            stock_name=row['name']
+                            stock_code=row['ts_code'],
+                            stock_name=row['con_name']
                         )
-                        session.add(new_relation)
+                        session.merge(new_relation)
                 session.commit()
             else:
                 logging.info("没有要更新的板块映射关系")

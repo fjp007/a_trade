@@ -119,6 +119,15 @@ class LimitDataSource():
             self.daily_data_cache = {}
             self.load_daily_data()
 
+    def get_name_to_code(self):
+        """
+        返回股票名称到股票代码的映射字典
+        """
+        return {
+            record.stock_name: record.stock_code
+            for record in self.all_limit_map.values()
+        }
+
     def load_daily_data(self):
         with Session() as session:
             stock_codes = self.all_limit_map.keys()

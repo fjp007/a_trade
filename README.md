@@ -1,47 +1,3 @@
-### concept_daily_analysis - 题材日内数据分析表
-
-此表记录每日题材的市场表现，包括涨停数量和龙头股信息。
-
-| 字段名                     | 类型     | 描述                                         |
-|----------------------------|----------|----------------------------------------------|
-| `concept_code`             | String   | 题材编码，用于唯一标识一个题材，**主键**。      |
-| `trade_date`               | String   | 交易日期，用于标识数据属于哪一天，**主键**。    |
-| `concept_name`             | String   | 题材名称，用于显示题材的具体名称。             |
-| `concept_pch_chg`          | Float    | 当日题材的百分比变化，显示题材日内的表现。     |
-| `limit_up_count`           | Integer  | 当日该题材下涨停股票的数量，反映题材的强势。   |
-| `dragon_first_stock_code`  | String   | 当日该题材下涨停的龙头股票代码。               |
-| `dragon_first_stock_name`  | String   | 龙头股票名称，显示涨停龙头的名称。             |
-| `dragon_second_stock_code` | String   | 次龙头股票代码，显示次级涨停股票的代码。       |
-| `dragon_second_stock_name` | String   | 次龙头股票名称，显示次级涨停股票的名称。       |
-
-### limit_daily_attribution - 涨停题材日内归因表
-此表用于记录每只涨停股票当日归因的题材。
-
-| 字段名           | 类型     | 描述                                             |
-|----------------|----------|------------------------------------------------|
-| `stock_code`   | String   | 股票代码，用于唯一标识股票，**主键**。                    |
-| `trade_date`   | String   | 交易日期，用于标识数据属于哪一天，**主键**。                |
-| `stock_name`   | String   | 股票名称，显示股票的具体名称。                                 |
-| `concept_code` | String   | 与此股票关联的题材编码，用于查询股票涨停的题材。                     |
-| `concept_name` | String   | 与此股票关联的题材名称，用于显示股票涨停的具体题材。                 |
-
-### concepts_daily_data - 题材日线表
-| 字段名          | 类型     | 描述                                     |
-|---------------|----------|----------------------------------------|
-| `concept_code`| String   | 题材编码，用于唯一标识一个题材，**主键**。          |
-| `trade_date`  | String   | 交易日期，用于标识数据属于哪一天，**主键**。        |
-| `open`        | Float    | 开盘价，显示题材当日的开盘价格。                       |
-| `high`        | Float    | 最高价，显示题材当日的最高交易价格。                     |
-| `low`         | Float    | 最低价，显示题材当日的最低交易价格。                     |
-| `close`       | Float    | 收盘价，显示题材当日的收盘价格。                       |
-| `pre_close`   | Float    | 昨收盘价，显示题材前一交易日的收盘价格。                 |
-| `change`      | Float    | 变化额，显示题材当日的价格变化额。                      |
-| `pct_chg`     | Float    | 百分比变化，显示题材当日的价格百分比变化。                |
-| `vol`         | Float    | 成交量，显示题材当日的总成交量。                        |
-| `amount`      | Float    | 成交金额，显示题材当日的总成交金额。                     |
-| `turnover_rate` | Float  | 换手率，显示题材当日的换手率。                          |
-| `avg_price`   | Float    | 平均价格，计算题材当日的平均交易价格。                   |
-
 ### trade_calendar - 交易日历表
 此表用于记录交易所的开放和关闭状态。
 | 字段名           | 类型     | 描述                                   |
@@ -68,22 +24,6 @@
 | `pct_chg`   | Float    | 价格百分比变化。                         |
 | `vol`       | Float    | 成交量。                                |
 | `amount`    | Float    | 成交金额。                              |
-
-
-### concept_info - 板块信息表
-
-此表记录市场上的概念及其基本信息。
-| 字段名               | 类型     | 描述                              |
-|--------------------|----------|---------------------------------|
-| `concept_code`     | String   | 概念编码，用于唯一标识一个概念，**主键**。   |
-| `name`             | String   | 概念名称。                          |
-| `count`            | Integer  | 包含的股票数量。                      |
-| `exchange`         | String   | 交易所标识。                         |
-| `list_date`        | String   | 概念的创建日期。                      |
-| `type`             | String   | 概念类型。                           |
-| `is_available`     | Integer  | 概念是否有效，1为有效，0为无效。           |
-| `daily_data_start_date`| String| 概念数据起始日期。                  |
-| `daily_data_end_date`  | String| 概念数据结束日期。                  |
 
 ### stock_base - 股票基本信息表
 
@@ -121,6 +61,20 @@
 | `limit_up_amount`             | Float    | 涨停股票的成交金额。                      |
 | `highest_continuous_up_count` | Integer  | 最高连续上涨天数。                       |
 
+### index_daily_data - 指数日线表
+
+此表记录每个指数每日的详细交易数据。
+
+| 字段名          | 类型     | 描述                               |
+|---------------|----------|----------------------------------|
+| `ts_code`     | String   | 指数代码，**主键**。                      |
+| `trade_date`  | String   | 交易日期，**主键**。                      |
+| `close`       | Float    | 收盘价。                            |
+| `open`        | Float    | 开盘价。                            |
+| `high`        | Float    | 最高价。                            |
+| `low`         | Float    | 最低价。                            |
+| `pre_close`   | Float   
+
 ### limit_up_tushare - 涨停股票数据表
 
 此表记录通过TuShare获取的涨停股票数据。
@@ -150,16 +104,45 @@
 | `continuous_limit_up_count` | Integer  | 连续涨停次数。                          |
 | `reason_type`            | String   | 涨停原因类型。                          |
 
-### index_daily_data - 指数日线表
+### concepts_daily_data - 题材日线表
+| 字段名          | 类型     | 描述                                     |
+|---------------|----------|----------------------------------------|
+| `concept_code`| String   | 题材编码，用于唯一标识一个题材，**主键**。          |
+| `trade_date`  | String   | 交易日期，用于标识数据属于哪一天，**主键**。        |
+| `open`        | Float    | 开盘价，显示题材当日的开盘价格。                       |
+| `high`        | Float    | 最高价，显示题材当日的最高交易价格。                     |
+| `low`         | Float    | 最低价，显示题材当日的最低交易价格。                     |
+| `close`       | Float    | 收盘价，显示题材当日的收盘价格。                       |
+| `pre_close`   | Float    | 昨收盘价，显示题材前一交易日的收盘价格。                 |
+| `change`      | Float    | 变化额，显示题材当日的价格变化额。                      |
+| `pct_chg`     | Float    | 百分比变化，显示题材当日的价格百分比变化。                |
+| `vol`         | Float    | 成交量，显示题材当日的总成交量。                        |
+| `amount`      | Float    | 成交金额，显示题材当日的总成交金额。                     |
+| `turnover_rate` | Float  | 换手率，显示题材当日的换手率。                          |
+| `avg_price`   | Float    | 平均价格，计算题材当日的平均交易价格。                   |
 
-此表记录每个指数每日的详细交易数据。
+### concept_info - 板块信息表
 
-| 字段名          | 类型     | 描述                               |
-|---------------|----------|----------------------------------|
-| `ts_code`     | String   | 指数代码，**主键**。                      |
-| `trade_date`  | String   | 交易日期，**主键**。                      |
-| `close`       | Float    | 收盘价。                            |
-| `open`        | Float    | 开盘价。                            |
-| `high`        | Float    | 最高价。                            |
-| `low`         | Float    | 最低价。                            |
-| `pre_close`   | Float   
+此表记录市场上的概念及其基本信息。
+| 字段名               | 类型     | 描述                              |
+|--------------------|----------|---------------------------------|
+| `concept_code`     | String   | 概念编码，用于唯一标识一个概念，**主键**。   |
+| `name`             | String   | 概念名称。                          |
+| `count`            | Integer  | 包含的股票数量。                      |
+| `exchange`         | String   | 交易所标识。                         |
+| `list_date`        | String   | 概念的创建日期。                      |
+| `type`             | String   | 概念类型。                           |
+| `is_available`     | Integer  | 概念是否有效，1为有效，0为无效。           |
+| `daily_data_start_date`| String| 概念数据起始日期。                  |
+| `daily_data_end_date`  | String| 概念数据结束日期。                  |
+
+### limit_daily_attribution - 涨停题材日内归因表
+此表用于记录每只涨停股票当日归因的题材。
+
+| 字段名           | 类型     | 描述                                             |
+|----------------|----------|------------------------------------------------|
+| `stock_code`   | String   | 股票代码，用于唯一标识股票，**主键**。                    |
+| `trade_date`   | String   | 交易日期，用于标识数据属于哪一天，**主键**。                |
+| `stock_name`   | String   | 股票名称，显示股票的具体名称。                                 |
+| `concept_code` | String   | 与此股票关联的题材编码，用于查询股票涨停的题材。                     |
+| `concept_name` | String   | 与此股票关联的题材名称，用于显示股票涨停的具体题材。                 |

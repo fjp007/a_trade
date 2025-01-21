@@ -224,7 +224,7 @@ def analyze_concept_datas_from_media_image(image_path):
 6.**输出内容必须从 '{{' 开始，直到 '}}' 结束**。任何额外的字符（如换行、注释或代码块标记）都将导致解析失败
 """
     # 获取 LLM 调用器，默认使用 Deepseek
-    caller = LLMCallerFactory.get_caller("kimi")
+    caller = LLMCallerFactory.get_caller("doubao")
     
     try:
         response_text = caller.call_visual_model_api(

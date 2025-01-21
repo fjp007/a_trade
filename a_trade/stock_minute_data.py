@@ -7,6 +7,7 @@ from a_trade.db_base import Session, Base, engine
 from a_trade.settings import _get_tushare
 import logging
 import sys
+from typing import List
 
 # 定义分时数据表
 class StockMinuteData(Base):
@@ -113,12 +114,43 @@ def fetch_and_save_data(stock_code, trade_date):
         session.close()
 
 # 方法2: 获取数据
-def get_minute_data(stock_code, trade_date):
+def get_minute_data(stock_code: str, trade_date: str, trade_time: datetime.datetime=None) -> List[StockMinuteData]:
+    """
+    获取指定股票在指定交易日的分钟数据
+
+    参数:
+        stock_code: str, 股票代码
+        trade_date: str, 交易日期 (格式: YYYYMMDD)
+        trade_time: datetime.datetime, 交易时间，返回指定trade_time的数据，默认为空
+
+    返回:
+        List[StockMinuteData]: 按时间排序的分钟数据列表
+    """
     with Session() as session:
-        result = session.query(StockMinuteData).filter_by(stock_code=stock_code, trade_date=trade_date).order_by(StockMinuteData.trade_time).all()
+        query = session.query(StockMinuteData).filter_by(
+            stock_code=stock_code, 
+            trade_date=trade_date
+        )
+        
+        # 如果指定了trade_time，则添加时间过滤条件
+        if trade_time:
+            trade_time_str = trade_time.strftime("%Y-%m-%d %H:%M:%S")
+            query = query.filter(StockMinuteData.trade_time == trade_time_str)
+            
+        result = query.order_by(StockMinuteData.trade_time).all()
+        
         if not result:
             fetch_and_save_data(stock_code, trade_date)
-            result = session.query(StockMinuteData).filter_by(stock_code=stock_code, trade_date=trade_date).order_by(StockMinuteData.trade_time).all()
+            result = session.query(StockMinuteData).filter_by(
+                stock_code=stock_code, 
+                trade_date=trade_date
+            ).order_by(StockMinuteData.trade_time).all()
+            
+            # 如果指定了trade_time，再次过滤结果
+            if trade_time:
+                trade_time_str = trade_time.strftime("%Y-%m-%d %H:%M:%S")
+                result = [data for data in result if data.trade_time == trade_time_str]
+                
         return result
     
 def get_minute_data_for_multiple_stocks(stock_codes, trade_date):

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "a-trade"
-version = "1.4.9"
+version = "1.5.2"
 description = ""
 authors = ["fengjianpeng <miracle1627@163.com>"]
 readme = "README.md"
@@ -27,6 +27,9 @@ opencv-python = "^4.5.5.64"
 webdriver-manager = "^4.0.2"
 volcengine-python-sdk = "^1.0.120"
 json-repair = "0.30.0"
+alembic = "^1.14.0"
+pydantic = "^2.10.5"
+psycopg2-binary = "^2.9.10"
 
 
 [build-system]
