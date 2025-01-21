@@ -193,7 +193,7 @@ def analyze_related_concept_with_limit_reason(limit_reason, concept_names, searc
 
 def analyze_concept_datas_from_media_image(image_path):
     prompt = """
-图片里是一张股票分类表。
+图片里是股票分类表。
 **表格格式: **
 表格第一行第一列是交易日，后面几列是合并单元格，单元格里是 一级分类(股票数量)(分类成交额)
 表格第二行是表格的列名，我想让你分析的列名是股票代码、股票名称、概念。如果没有找到概念这个列名并且第一列没有列名，那第一列就是概念。

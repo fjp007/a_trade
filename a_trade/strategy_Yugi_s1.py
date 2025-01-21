@@ -653,9 +653,9 @@ class StrategyTaskYugiS1(StrategyTask):
                     stock_limit_info: Optional[LimitUpTushare] = stock
                     daily_position=None
                     if stock_limit_info.continuous_limit_up_count > second_limit_count:
-                        daily_position = "次高空间板"
-                    elif stock_limit_info.continuous_limit_up_count == second_limit_count:
                         daily_position = "最高空间板"
+                    elif stock_limit_info.continuous_limit_up_count == second_limit_count:
+                        daily_position = "次高空间板"
 
                     is_t_limit = (stock_limit_info in t_stocks)
                     observed_model = ObservedStockS1Model(
