@@ -14,12 +14,11 @@ from sqlalchemy import (
     and_, func, Column, String, DateTime, Integer, DECIMAL, create_engine,
     ForeignKey, UniqueConstraint, ForeignKeyConstraint, Date, Index)
 from sqlalchemy.dialects.postgresql import JSONB, ENUM
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, sessionmaker, declarative_base
 from sqlalchemy.exc import IntegrityError
 
 from a_trade.stock_subscription import StockSubscriptionBus
 from a_trade.trade_calendar import TradeCalendar
-from a_trade.db_base import Base
 from a_trade.stock_minute_data import get_minute_data
 from a_trade.wechat_bot import WechatBot
 from a_trade.settings import get_project_path
@@ -36,17 +35,17 @@ STRATEGY_DB_NAME = os.getenv('STRATEGY_DB_NAME')
 
 # 创建数据库 URL
 STRATEGY_DB_URL = f'postgresql+psycopg2://{STRATEGY_DB_USERNAME}:{STRATEGY_DB_PASSWORD}@{STRATEGY_DB_HOST}:{STRATEGY_DB_PORT}/{STRATEGY_DB_NAME}'
-print(STRATEGY_DB_URL)
+logging.info(f"策略数据库地址: {STRATEGY_DB_URL}")
 # PostgreSQL 数据库连接配置
 strategy_engine = create_engine(STRATEGY_DB_URL, echo=False)
 StrategySession = sessionmaker(bind=strategy_engine)
-
+StrategyBase = declarative_base()
 class StrategyTaskMode(PyEnum):
     MODE_BACKTEST_LOCAL = "MODE_BACKTEST_LOCAL"
     MODE_BACKTEST_EMQUANT = "MODE_BACKTEST_EMQUANT"
     MODE_LIVE_EMQUANT = "MODE_LIVE_EMQUANT"
 
-class StrategyInfo(Base):
+class StrategyInfo(StrategyBase):
     __tablename__ = 'strategy_info'
     strategy_id = Column(Integer, primary_key=True, autoincrement=True)
     strategy_name = Column(String(100), nullable=False, unique=True)
@@ -61,7 +60,7 @@ class StrategyInfo(Base):
     def __repr__(self):
         return f"<StrategyInfo(strategy_id={self.strategy_id}, strategy_name='{self.strategy_name}', release_version_id='{self.release_version_id}')>"
 
-class StrategyVersion(Base):
+class StrategyVersion(StrategyBase):
     __tablename__ = 'strategy_version'
     strategy_id = Column(Integer, ForeignKey('strategy_info.strategy_id'), primary_key=True)
     version_id = Column(Integer, primary_key=True)
@@ -82,7 +81,7 @@ class StrategyVersion(Base):
         return (f"<StrategyVersion(strategy_id={self.strategy_id}, version_id={self.version_id}, "
                 f"version_hash='{self.version_hash}', parameters={self.parameters})>")
 
-class StrategyObservationEntry(Base):
+class StrategyObservationEntry(StrategyBase):
     __tablename__ = 'strategy_observation_entry'
     entry_id = Column(Integer, primary_key=True, autoincrement=True)
     strategy_id = Column(Integer, nullable=False)
@@ -125,7 +124,7 @@ class StrategyObservationEntry(Base):
                 f"version_id={self.version_id}, trade_date={self.trade_date}, "
                 f"stock_code='{self.stock_code}', stock_name='{self.stock_name}')>")
 
-class TradeRecord(Base):
+class TradeRecord(StrategyBase):
     __tablename__ = 'trade_record'
     trade_id = Column(Integer, primary_key=True, autoincrement=True)
     entry_id = Column(Integer, ForeignKey('strategy_observation_entry.entry_id'), nullable=False)
@@ -152,7 +151,7 @@ class TradeRecord(Base):
                 f"buy_price={self.buy_price}, sell_time={self.sell_time}, "
                 f"sell_price={self.sell_price}, profit_rate={self.profit_rate})>")
 
-class ObservationVariable(Base):
+class ObservationVariable(StrategyBase):
     __tablename__ = 'observation_variable'
     variable_id = Column(Integer, primary_key=True, autoincrement=True)
     entry_id = Column(Integer, ForeignKey('strategy_observation_entry.entry_id'), unique=True, nullable=False)
@@ -172,7 +171,7 @@ class ObservationVariable(Base):
         return (f"<ObservationVariable(variable_id={self.variable_id}, entry_id={self.entry_id}, "
                 f"variables={self.variables})>")
 
-Base.metadata.create_all(strategy_engine)
+StrategyBase.metadata.create_all(strategy_engine)
 
 @dataclass
 class StockMinuteModel:
@@ -215,6 +214,14 @@ class ObservationVarMode(BaseModel):
             cls.model_fields[field].description
             for field in cls.model_fields
         ]
+    
+    @classmethod
+    def from_observation_variable(cls, observation_variable: ObservationVariable) -> 'ObservationVarMode':
+        """
+        从 ObservationVariable 的 JSONB 数据转化为 ObservationVarMode 子类实例。
+        """
+        return cls(**observation_variable.variables)
+
     
 class StrategyTask(ABC):
     """
@@ -431,7 +438,8 @@ class StrategyTask(ABC):
                 session.add(new_variable)
                 session.commit()
                 logging.info(f"成功添加观察条目及变量: {new_entry}")
-                
+                if self.trade_date == trade_date and new_entry.stock_code not in self.observe_stocks_to_buy:
+                    self.observe_stocks_to_buy[stock_code] = (new_entry, new_variable)
                 return new_entry
             except IntegrityError:
                 session.rollback()

@@ -1,7 +1,8 @@
 # coding: utf-8
-from typing import Optional, Callable
+from typing import Optional, Callable, List, Tuple, Type, Dict, Any
 import logging
 import datetime
+from sqlalchemy.orm.attributes import flag_modified
 from pydantic import Field
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.db_base import Session
@@ -30,33 +31,6 @@ class StrategyTaskYugiS2(StrategyTask):
     策略任务类，用于封装日内策略操作, 包含准备观察池、订阅分时、取消订阅、买入股票、卖出股票。
     """
 
-    def __init__(self, trade_date: str, mode: StrategyTaskMode = StrategyTaskMode.MODE_BACKTEST_LOCAL,
-                 buy_callback: Optional[Callable] = None, sell_callback: Optional[Callable] = None,
-                 subscribe_callback: Optional[Callable] = None, unsubscribe_callback: Optional[Callable] = None,
-                 enable_send_msg: bool = False):
-        """
-        初始化策略任务类。
-        参数:
-            trade_date: str，交易日期，例如 "20240102"。
-            mode: StrategyTaskMode，运行模式
-            buy_callback: 买入回调函数
-            sell_callback: 卖出回调函数
-            subscribe_callback: 订阅回调函数
-            unsubscribe_callback: 取消订阅回调函数
-            enable_send_msg: 是否发送微信通知
-        """
-        super().__init__(
-            trade_date=trade_date,
-            mode=mode,
-            buy_callback=buy_callback,
-            sell_callback=sell_callback,
-            subscribe_callback=subscribe_callback,
-            unsubscribe_callback=unsubscribe_callback,
-            enable_send_msg=enable_send_msg
-        )
-
-        self.prepare_observed_pool()
-
     def prepare_observed_pool(self):
         pass
 
@@ -68,9 +42,6 @@ class StrategyTaskYugiS2(StrategyTask):
     
     def trade_did_end(self):
         pass
-    def stop_subscribe_buy_stock(self, stock_code):
-        if stock_code not in self.observe_stocks_to_sell:
-            super().stop_subscribe_buy_stock(stock_code)
 
     def handle_buy_stock(self, stock_code: str, minute_data, trade_time: str):
         """
@@ -86,18 +57,18 @@ class StrategyTaskYugiS2(StrategyTask):
     def handle_sell_stock(self, stock_code: str, minute_data, trade_time: str):
         pass
     
-    def buy_stock(self, stock_code, stock_name, buy_price, buy_time):
-        pass
-            
-    def sell_stock(self, stock_code: str, sold_price: float, trade_time: datetime.datetime, observer_sell_info, sell_reason: str):
-        pass
-
-class StrategyYugiS1(Strategy):
-    def analysis_observed_stocks_pool_for_day(self, trade_date):
-        pass
-            
-    def export_trade_records_to_excel(self):
-        pass
+class StrategyYugiS2(Strategy):
+    def strategy_name(self) -> str:
+        return "Yugi_s2"
+    
+    def get_observation_model(self) -> ObservationVarMode:
+        return ObservedStockS2Model
+    
+    def analyze_performance_datas(self, records: List[Tuple[TradeRecord, StrategyObservationEntry, ObservationVariable]]) -> Dict[str, Any]:
+        return {}
+    
+    def __init__(self, task_cls: StrategyTask = StrategyTaskYugiS2, params: Type['StrategyParams'] = StrategyParamsYugiS2(), mode: StrategyTaskMode = StrategyTaskMode.MODE_BACKTEST_LOCAL):
+        super().__init__(task_cls, params, mode)
 
 
 if __name__ == "__main__":
@@ -108,9 +79,8 @@ if __name__ == "__main__":
     start_date = sys.argv[1]
     end_date = sys.argv[2]
 
-    strategy = StrategyYugiS1(start_date, end_date)
-    strategy.analysis_observed_stocks_pool()
-
-    strategy.start_trade_by_strategy()
-    strategy.analyze_strategy_performance()
-    strategy.export_trade_records_to_excel()
+    strategy = StrategyYugiS2()
+    # strategy.publish(clear=True)
+    strategy.local_simulation(start_date, end_date)
+    strategy.analyze_strategy_performance(start_date, end_date)
+    strategy.export_trade_records_to_excel(start_date, end_date)

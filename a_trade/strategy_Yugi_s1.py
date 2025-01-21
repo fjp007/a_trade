@@ -9,7 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from pydantic import Field
 
 from a_trade.limit_attribution import LimitDailyAttribution
-from a_trade.stocks_daily_data import StockDailyData, StockDailyDataSource
+from a_trade.stocks_daily_data import StockDailyData, StockDailyDataSource, get_stock_daily_data_for_day
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.limit_up_data_tushare import LimitUpTushare, is_strong_stock_base_limit_data, LimitDataSource
 from a_trade.stock_minute_data import is_strong_limit_up_base_minute_data
@@ -166,13 +166,6 @@ class ObservedStockS1Model(ObservationVarMode):
     is_t_limit: bool = Field(False, description="是否T字线")
     buy_date_status: Optional[str] = Field('未封板', description="买入日收盘状态")
 
-    @classmethod
-    def from_observation_variable(cls, observation_variable: ObservationVariable) -> "ObservedStockS1Model":
-        """
-        从 ObservationVariable 的 JSONB 数据转化为 ObservedStockS1Model。
-        """
-        return cls(**observation_variable.variables)
-
     class Config:
         # 配置允许使用 JSON 数据初始化
         populate_by_name = True
@@ -228,7 +221,7 @@ class StrategyTaskYugiS1(StrategyTask):
                 StrategyObservationEntry.trade_date == next_date,
                 sqlalchemy_cast(ObservationVariable.variables['is_t_limit'], Boolean) == True  # 筛选 ObservationVariable 中 is_t_limit = True 的记录
             ]
-            t_stocks = self.strategy.query_observation_data(session=session, trade_date=next_date, filters=filters)
+            t_stocks = self.strategy.query_observation_data(session=session, filters=filters)
 
             if t_stocks:
                 content = f"今日冰点，明天重点观测T字板 {','.join(list(set([stock_info.stock_name for stock_info in t_stocks])))}"
@@ -259,8 +252,11 @@ class StrategyTaskYugiS1(StrategyTask):
             ])
             
             limit_data_source = LimitDataSource(self.trade_date)
-            
             for entry, var in results:
+                daily_data = get_stock_daily_data_for_day(stock_code=entry.stock_code, trade_date=self.trade_date)
+                if not daily_data:
+                    entry.trade_date = TradeCalendar.get_next_trade_date(self.trade_date)
+                    session.merge(entry)
                 status = '未封板'
                 if entry.stock_code in limit_data_source.limit_up_map:
                     status = '强势板' if is_strong_stock_base_limit_data(limit_data_source.limit_up_map[entry.stock_code]) else '弱势板'
@@ -268,15 +264,11 @@ class StrategyTaskYugiS1(StrategyTask):
                     status = '跌停板'
                 elif entry.stock_code in limit_data_source.limit_failed_map:
                     status = '炸板'
-                var.variables['buy_date_status'] = status
                 # 添加日志输出
                 logging.info(f"Updating {entry.stock_code} status to {status} {entry}")
                 
                 # 显式更新数据库记录
                 var.variables['buy_date_status'] = status
-                session.add(var)
-
-                # 显式标记字段为已更改
                 flag_modified(var, "variables")
                 session.add(var)
             try:
@@ -699,7 +691,7 @@ class StrategyYugiS1(Strategy):
         success_rate = len(success_trades) / len(records) if len(records) > 0 else 0
         return {
             "策略买入封板股票数": f"{len(success_trades)}",
-            "买入当天封板成功率:": f"{success_rate:.2%}"
+            "买入当天封板成功率": f"{success_rate:.2%}"
         }
     
     def __init__(self, task_cls: StrategyTask = StrategyTaskYugiS1, params: Type['StrategyParams'] = StrategyParamsYugiS1(), mode: StrategyTaskMode = StrategyTaskMode.MODE_BACKTEST_LOCAL):
@@ -714,9 +706,9 @@ if __name__ == "__main__":
     end_date = sys.argv[2]
 
     strategy = StrategyYugiS1()
-    strategy.publish(clear=True)
-    # strategy.local_simulation(start_date, end_date)
-    # strategy.analyze_strategy_performance(start_date, end_date)
-    # strategy.export_trade_records_to_excel(start_date, end_date)
+    # strategy.publish(clear=True)
+    strategy.local_simulation(start_date, end_date)
+    strategy.analyze_strategy_performance(start_date, end_date)
+    strategy.export_trade_records_to_excel(start_date, end_date)
 
    
