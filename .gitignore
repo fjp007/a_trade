@@ -10,3 +10,4 @@ strategy_result/
 a_trade/__pycache__/
 *.py[cod]
 dist/
+a_trade/.env
