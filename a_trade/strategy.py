@@ -249,6 +249,7 @@ class StrategyTask(ABC):
         self.observe_stocks_to_sell: Dict[str, Tuple[TradeRecord, StrategyObservationEntry]] = {}
         self.sell_info_record_map: Dict[str, SellInfoRecord] = {}
         self.enable_send_msg = enable_send_msg
+        logging.info(f"策略任务已创建 {self.run_mode} {self.trade_date}")
     
     def prepare_observed_pool(self) -> bool:    
         if self.run_mode != StrategyTaskMode.MODE_BACKTEST_LOCAL:
@@ -615,6 +616,8 @@ class Strategy(ABC):
                 # 如果版本已存在，直接使用现有ID
                 self.version_id = version_exists.version_id
 
+        logging.info(f"策略已经创建: {self.strategy_name()} 版本v{self.version_id} 参数{self.params} mode {self.run_mode}")
+
     def publish(self, clear=False):
         # 获取策略名称
         strategy_name = self.strategy_name()
@@ -695,7 +698,8 @@ class Strategy(ABC):
             
         task = self.task_cls(
             strategy=self,
-            trade_date=trade_date)
+            trade_date=trade_date,
+            mode=self.run_mode)
         return task
 
     def strategy_simulation_daily_work(self, trade_date):
@@ -715,7 +719,7 @@ class Strategy(ABC):
         """
         if not hasattr(self, 'strategy_id') or not hasattr(self, 'version_id'):
             raise ValueError("请先创建策略版本")
-        logging.info(f"本地运行运行策略{self.strategy_name()} 版本v{self.version_id} 参数{self.params}")
+
         with StrategySession() as session:
             try:
                 # 构建删除条件，限定当前策略版本
