@@ -705,7 +705,7 @@ class Strategy(ABC):
         task.start_local_trade()
         task.trade_did_end()
 
-    def local_simulation(self, start_date: str, end_date: str) -> None:
+    def clear_records(self, start_date: str, end_date: str) -> None:
         """
         清理指定日期范围内的当前策略版本的观察数据
 
@@ -751,6 +751,9 @@ class Strategy(ABC):
                 session.rollback()
                 logging.error(f"删除策略观察数据时发生错误: {e}")
                 raise
+
+    def local_simulation(self, start_date: str, end_date: str) -> None:
+        self.clear_records(start_date, end_date)
         TradeCalendar.iterate_trade_days(start_date, end_date, self.strategy_simulation_daily_work)
 
     @abstractmethod
