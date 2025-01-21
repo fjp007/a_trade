@@ -5,13 +5,122 @@ from typing import Callable, Optional, Dict, Type
 import logging
 import datetime
 from dataclasses import dataclass
-from sqlalchemy import and_, func, Column, String, Float, DateTime, Integer, Boolean
+from sqlalchemy import (
+    and_, func, Column, String, Float, DateTime, Integer, DECIMAL,
+    JSON, ForeignKey, UniqueConstraint, ForeignKeyConstraint, Date)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
 from a_trade.db_base import Session
 from a_trade.stock_subscription import StockSubscriptionBus
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.db_base import Base
 from a_trade.wechat_bot import WechatBot
+
+class Strategy(Base):
+    __tablename__ = 'strategy'
+    strategy_id = Column(String(100), primary_key=True)  # 自定义命名
+    release_version = Column(String(50), nullable=False)
+    
+    # 关系：一个策略有多个版本
+    versions = relationship("StrategyVersion", back_populates="strategy", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Strategy(strategy_id={self.strategy_id}, strategy_name='{self.strategy_name}', release_version='{self.release_version}')>"
+
+class StrategyVersion(Base):
+    __tablename__ = 'strategy_version'
+    strategy_id = Column(Integer, ForeignKey('strategy.strategy_id'), primary_key=True)
+    version_id = Column(Integer, primary_key=True)
+    parameters = Column(JSONB, nullable=False)  # 使用 JSONB 存储策略参数
+    version_hash = Column(String(32), nullable=False, unique=True)  # MD5 哈希值，唯一标识版本
+    
+    # 关系：每个策略版本属于一个策略
+    strategy = relationship("Strategy", back_populates="versions")
+    
+    # 关系：每个策略版本有多个观察池
+    observation_pools = relationship(
+        "ObservationPool",
+        back_populates="strategy_version",
+        cascade="all, delete-orphan"
+    )
+    
+    def __repr__(self):
+        return (f"<StrategyVersion(strategy_id={self.strategy_id}, version_id={self.version_id}, "
+                f"version_hash='{self.version_hash}', parameters={self.parameters})>")
+
+class ObservationPool(Base):
+    __tablename__ = 'observation_pool'
+    pool_id = Column(Integer, primary_key=True, autoincrement=True)
+    strategy_id = Column(Integer, nullable=False)
+    version_id = Column(Integer, nullable=False)
+    trade_date = Column(Date, nullable=False)
+    stock_code = Column(String(20), nullable=False)
+    stock_name = Column(String(100), nullable=False)
+    
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ['strategy_id', 'version_id'],
+            ['strategy_version.strategy_id', 'strategy_version.version_id']
+        ),
+        UniqueConstraint(
+            'strategy_id', 'version_id', 'trade_date', 'stock_code',
+            name='uix_observation_pool'
+        )
+    )
+    
+    # 关系：每个观察池属于一个策略版本
+    strategy_version = relationship("StrategyVersion", back_populates="observation_pools")
+    
+    # 关系：每个观察池有多个交易记录
+    trade_records = relationship(
+        "TradeRecord",
+        back_populates="observation_pool",
+        cascade="all, delete-orphan"
+    )
+    
+    # 关系：每个观察池有一个对应的 ObservationVariable（单一）
+    observation_variable = relationship(
+        "ObservationVariable",
+        back_populates="observation_pool",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+    
+    def __repr__(self):
+        return (f"<ObservationPool(pool_id={self.pool_id}, strategy_id={self.strategy_id}, "
+                f"version_id={self.version_id}, trade_date={self.trade_date}, "
+                f"stock_code='{self.stock_code}', stock_name='{self.stock_name}')>")
+
+class TradeRecord(Base):
+    __tablename__ = 'trade_record'
+    trade_id = Column(Integer, primary_key=True, autoincrement=True)
+    pool_id = Column(Integer, ForeignKey('observation_pool.pool_id'), nullable=False)
+    strategy_id = Column(Integer, nullable=False)
+    version_id = Column(Integer, nullable=False)
+    mode = Column(Integer, nullable=False)  # 0: 本地数据库回测, 1: 东财量化历史数据回测, 2: 东财量化实盘监听数据回测
+    trade_date = Column(Date, nullable=False)
+    buy_time = Column(DateTime, nullable=False)
+    buy_price = Column(DECIMAL(10, 2), nullable=False)
+    sell_time = Column(DateTime, nullable=False)
+    sell_price = Column(DECIMAL(10, 2), nullable=False)
+    return_rate = Column(DECIMAL(5, 2), nullable=False)
+    
+    __table_args__ = (
+        UniqueConstraint(
+            'strategy_id', 'version_id', 'mode',
+            name='uix_trade_record'
+        ),
+    )
+    
+    # 关系：每个交易记录属于一个观察池
+    observation_pool = relationship("ObservationPool", back_populates="trade_records")
+    
+    def __repr__(self):
+        return (f"<TradeRecord(trade_id={self.trade_id}, pool_id={self.pool_id}, "
+                f"strategy_id={self.strategy_id}, version_id={self.version_id}, mode={self.mode}, "
+                f"trade_date={self.trade_date}, buy_time={self.buy_time}, buy_price={self.buy_price}, "
+                f"sell_time={self.sell_time}, sell_price={self.sell_price}, return_rate={self.return_rate})>")
 
 class ObservedStockPool(Base):
     __abstract__ = True

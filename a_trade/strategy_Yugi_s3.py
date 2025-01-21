@@ -66,7 +66,7 @@ class StrategyTaskYugiS3(StrategyTask):
     def buy_stock(self, stock_code, stock_name, buy_price, buy_time):
         pass
             
-    def sell_stock(self, stock_code: str, sold_price: float, trade_time: datetime.datetime, observer_sold_info, sell_reason: str):
+    def sell_stock(self, stock_code: str, sold_price: float, trade_time: datetime.datetime, observer_sell_info, sell_reason: str):
         pass
 
 class StrategyYugiS3(Strategy):

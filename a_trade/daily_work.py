@@ -18,7 +18,7 @@ from a_trade.stock_base import update_new_stocks
 import a_trade.settings
 from a_trade.limit_attribution import update_limit_daily_attribution_during
 from a_trade.concept_daily_chart import plot_limit_up_concepts_chart
-from a_trade.strategy_Yugi_s1 import ObservedStockPoolS1, StrategyYugiS1
+from a_trade.strategy_Yugi_s1 import StrategyYugiS1
 from a_trade.db_base import merge_db_data_from_sync_to_base, merge_db_data_from_base_to_sync
 
 env = os.getenv('ENV')
@@ -94,10 +94,12 @@ def main(today=None):
     #     send_msg('text', "今日复盘日报发送失败")
 
     start_date = last_full_empty_date if last_full_empty_date else today
-    strategy_YugiS1 = StrategyYugiS1(start_date, today)
-    strategy_YugiS1.analysis_observed_stocks_pool()
-    
-    ObservedStockPoolS1.daily_report(today)
+    strategy = StrategyYugiS1()
+    def run_strategy(trade_date):
+        task = strategy.generate_daily_task(today)
+        task.trade_did_end()
+    TradeCalendar.iterate_trade_days(start_date, today, run_strategy)
+    StrategyYugiS1().generate_daily_task(today).daily_report(today)
 
     if env == 'test':
         merge_db_data_from_base_to_sync()

@@ -2,13 +2,30 @@
 from typing import Optional, Callable
 import logging
 import datetime
-
+from pydantic import Field
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.db_base import Session
 from a_trade.limit_up_data_tushare import LimitUpTushare, LimitDataSource
-from a_trade.strategy_task import StrategyTask, StrategyTaskMode, Strategy
+from a_trade.strategy import (
+    StrategyParams, StrategyTask, StrategyTaskMode, Strategy, StrategyObservationEntry,
+    ObservationVariable, SubscribeStopType, SellInfoRecord, BuyInfoRecord, StrategySession, ObservationVarMode, TradeRecord)
 
-class StrategyTaskYugiS1(StrategyTask):
+class StrategyParamsYugiS2(StrategyParams):
+    # 冰点线定义，高于这条线，不做弱转强
+    cold_sentiment_line: int = Field(
+        40, 
+        description="冰点线定义，高于这条线，不做弱转强"
+    )
+
+strategy_params = StrategyParamsYugiS2()
+
+class ObservedStockS2Model(ObservationVarMode):
+    """
+    ObservedStockS1Model 属性定义，使用 Pydantic 验证。
+    """
+    concept_name: Optional[str] = Field(None, description="概念名称")
+
+class StrategyTaskYugiS2(StrategyTask):
     """
     策略任务类，用于封装日内策略操作, 包含准备观察池、订阅分时、取消订阅、买入股票、卖出股票。
     """
@@ -42,7 +59,15 @@ class StrategyTaskYugiS1(StrategyTask):
 
     def prepare_observed_pool(self):
         pass
+
+    def daily_report(self):
+        pass
+
+    def msg_desc_from(self, stock_code: str) -> str:
+        return ""
     
+    def trade_did_end(self):
+        pass
     def stop_subscribe_buy_stock(self, stock_code):
         if stock_code not in self.observe_stocks_to_sell:
             super().stop_subscribe_buy_stock(stock_code)
@@ -64,7 +89,7 @@ class StrategyTaskYugiS1(StrategyTask):
     def buy_stock(self, stock_code, stock_name, buy_price, buy_time):
         pass
             
-    def sell_stock(self, stock_code: str, sold_price: float, trade_time: datetime.datetime, observer_sold_info, sell_reason: str):
+    def sell_stock(self, stock_code: str, sold_price: float, trade_time: datetime.datetime, observer_sell_info, sell_reason: str):
         pass
 
 class StrategyYugiS1(Strategy):

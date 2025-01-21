@@ -192,15 +192,9 @@ class TradeCalendar(Base):
         finally:
             session.close()
 
-def main(today=None):
-    # 获取今天日期
-    if not today:
-        today = datetime.datetime.now().strftime("%Y%m%d")
-    print(f"更新{today}交易日历")
-    # 更新交易日历
-    TradeCalendar.update_trade_calendar(today)
-
 if __name__ == "__main__":
     import sys
-    main()
+    TradeCalendar.update_trade_calendar('20251231')
     sys.exit(0)
+    # data = _get_tushare().pro_api().trade_cal(exchange='SSE', start_date='20250120', end_date='20250127')
+    # print(data)

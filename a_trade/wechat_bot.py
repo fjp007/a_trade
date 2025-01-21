@@ -26,7 +26,7 @@ class WechatBot:
 
         :param trade_date: str, 交易日期字符串，用于标识消息的日期
         :param buy_stocks: list或tuple, 买入股票观察池，
-                        每个元素类似 (股票代码, 股票名称, concept_position, daily_position, is_t_limit)
+                        每个元素类似 (股票代码, 股票名称, 补充信息)
         :param sell_stocks: list或tuple, 卖出股票观察池，
                         每个元素类似 (股票代码, 股票名称)
         """
@@ -37,16 +37,12 @@ class WechatBot:
                 # 解构 stock 信息
                 stock_code: str = stock[0]
                 stock_name = stock[1]
-                concept_name = stock[2]
-                concept_position = stock[3]
-                is_t_limit = stock[4]
+                desc = stock[2]
                 
-                t_text = "[T字板]" if is_t_limit else ''
                 # 这里可根据实际业务需求进行格式化、拼装
                 buy_text_lines.append(
                     f"{strip_code_suffix(stock_code)} - {stock_name} - "
-                    f"[{concept_name} {concept_position}]"
-                    f"{t_text}"
+                    f"[{desc}]"
                 )
             else:
                 # 如果不是 tuple，就当作纯股票代码处理
