@@ -473,7 +473,7 @@ class StrategyTaskYugiS1(StrategyTask):
 
     def analysis_observed_stocks(self):
         next_date = TradeCalendar.get_next_trade_date(self.trade_date)
-        self.strategy.clexrar_records(next_date)
+        self.strategy.clear_records(next_date)
         with Session() as session:
             trade_date = self.trade_date
             market_data_today =  session.query(MarketDailyData).filter(MarketDailyData.trade_date.in_([trade_date])).first()

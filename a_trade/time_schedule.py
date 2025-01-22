@@ -107,11 +107,9 @@ class TimeScheduleBus:
                 pre_market_callbacks.extend(callbacks)
                 del self.scheduled_func_calls[trigger_time]
 
-        logging.info(f"执行盘前交易的回调数量: {len(pre_market_callbacks)}")
-
         for callback in pre_market_callbacks:
             func_name = getattr(callback, '__name__', repr(callback))
-            logging.info(f"即将执行盘前回调函数: {func_name}")
+            logging.info(f"{self.trade_date} 即将执行盘前回调函数: {func_name}")
             try:
                 callback()
             except Exception as e:
@@ -146,11 +144,10 @@ class TimeScheduleBus:
         
         # 如果没有订阅股票且没有盘中回调，则跳过盘中交易
         if not stock_codes and not market_callbacks:
-            logging.info("盘中交易阶段没有订阅股票且没有注册的回调函数，跳过盘中交易。")
+            logging.info(f"{self.trade_date} 盘中交易阶段没有订阅股票且没有注册的回调函数，跳过盘中交易。")
             return
 
         stock_minute_data = get_minute_data_for_multiple_stocks(stock_codes, self.trade_date)
-        logging.debug(f"获取到的股票分钟数据: {stock_minute_data.keys()}")
 
         # 按 datetime.datetime 分组
         time_grouped_data = defaultdict(dict)
@@ -168,7 +165,7 @@ class TimeScheduleBus:
             if current_dt in market_callbacks:
                 for callback in market_callbacks[current_dt]:
                     func_name = getattr(callback, '__name__', repr(callback))
-                    logging.info(f"[{current_dt.time()}] 即将执行盘中回调函数: {func_name}")
+                    logging.info(f"{self.trade_date} [{current_dt.time()}] 即将执行盘中回调函数: {func_name}")
                     try:
                         callback()
                     except Exception as e:
@@ -198,11 +195,9 @@ class TimeScheduleBus:
                 post_market_callbacks.extend(callbacks)
                 del self.scheduled_func_calls[trigger_time]
 
-        logging.info(f"执行盘后交易的回调数量: {len(post_market_callbacks)}")
-
         for callback in post_market_callbacks:
             func_name = getattr(callback, '__name__', repr(callback))
-            logging.info(f"即将执行盘后回调函数: {func_name}")
+            logging.info(f"{self.trade_date} 即将执行盘后回调函数: {func_name}")
             try:
                 callback()
             except Exception as e:

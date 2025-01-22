@@ -317,7 +317,6 @@ class StrategyTask(ABC):
         """
         订阅股票数据并设置回调
         """
-        print(f"will_subscribe_stocks {observed_codes}")
         if not observed_codes:
             logging.info(f"{self.trade_date} 本次没有订阅股票")
             return
