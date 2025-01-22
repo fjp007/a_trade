@@ -1,5 +1,11 @@
 # coding: utf-8
 import os
+from dotenv import load_dotenv
+load_dotenv()
+env = os.getenv('ENV')
+if env == 'dev':
+    env = 'test'
+    os.environ['ENV'] = 'test'  # 设置测试环境
 import datetime
 import sys
 import logging
@@ -18,11 +24,6 @@ from a_trade.limit_attribution import update_limit_daily_attribution_during
 from a_trade.concept_daily_chart import plot_limit_up_concepts_chart
 from a_trade.strategy_Yugi_s1 import StrategyYugiS1
 from a_trade.db_base import merge_db_data_from_sync_to_base, merge_db_data_from_base_to_sync
-
-env = os.getenv('ENV')
-if env == 'dev':
-    env = 'test'
-    os.environ['ENV'] = 'test'  # 设置测试环境
 
 def main(today=None):
     # 获取今天日期
