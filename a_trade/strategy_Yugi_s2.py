@@ -78,7 +78,7 @@ class StrategyTaskYugiS2(StrategyTask):
     def daily_report(self):
         pass
 
-    def msg_desc_from(self, stock_code: str) -> str:
+    def msg_desc_from(self, stock_code: str, var: ObservationVariable) -> str:
         return ""
     
     def update_trade_data(self):

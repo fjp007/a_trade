@@ -296,14 +296,13 @@ class StrategyTask(ABC):
                         entry: StrategyObservationEntry
                         var: ObservationVariable
                         # 也可以添加更多信息，比如 (stock_code, stock_name, concept_name...)
-                        buy_stocks.append((stock_code, entry.stock_name, self.msg_desc_from(var)))
+                        buy_stocks.append((stock_code, entry.stock_name, self.msg_desc_from(stock_code, var)))
 
                     # 2) 整理“卖出(持仓)观察池”列表
                     sell_stocks = []
                     for stock_code, (_, entry) in self.observe_stocks_to_sell.items():
                         entry: StrategyObservationEntry
                         sell_stocks.append((entry.stock_code, entry.stock_name))
-
                     # 3) 调用微信机器人发送观察池消息
                     WechatBot.send_observe_pool_msg(self.trade_date, buy_stocks, sell_stocks)
 
@@ -526,7 +525,7 @@ class StrategyTask(ABC):
         pass
     
     @abstractmethod
-    def msg_desc_from(self, stock_code: str) -> str:
+    def msg_desc_from(self, stock_code: str, var: ObservationVariable) -> str:
         pass
     
     @abstractmethod

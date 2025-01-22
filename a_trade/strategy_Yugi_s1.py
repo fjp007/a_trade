@@ -234,15 +234,13 @@ class StrategyTaskYugiS1(StrategyTask):
             )
             WechatBot.send_text_msg(final_msg)
 
-    def msg_desc_from(self, stock_code: str) -> str:
-        if stock_code in self.buy_info_record_map:
-            model = self.buy_var_model_map[stock_code]
+    def msg_desc_from(self, stock_code: str, var: ObservationVariable) -> str:
+        if var:
+            model = ObservedStockS1Model.from_observation_variable(var)
             desc = f"[{model.concept_name} {model.concept_position}]"
             if model.is_t_limit:
                 desc += "[T字线]"
             return desc
-        else:
-            return ""
     
     def update_trade_data(self):
         with StrategySession() as session:
@@ -656,7 +654,7 @@ class StrategyTaskYugiS1(StrategyTask):
                         daily_position = "最高空间板"
                     elif stock_limit_info.continuous_limit_up_count == second_limit_count:
                         daily_position = "次高空间板"
-
+                    print(f"location: {stock_limit_info.stock_name} {daily_position}")
                     is_t_limit = (stock_limit_info in t_stocks)
                     observed_model = ObservedStockS1Model(
                         concept_name=concept_name,
