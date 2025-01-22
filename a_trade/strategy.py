@@ -127,7 +127,7 @@ class StrategyObservationEntry(StrategyBase):
 class TradeRecord(StrategyBase):
     __tablename__ = 'trade_record'
     trade_id = Column(Integer, primary_key=True, autoincrement=True)
-    entry_id = Column(Integer, ForeignKey('strategy_observation_entry.entry_id'), nullable=False)
+    entry_id = Column(Integer, ForeignKey('strategy_observation_entry.entry_id', ondelete="CASCADE"), nullable=False)
     mode = Column(ENUM(StrategyTaskMode, name='strategy_task_mode'), nullable=False)  # 0: 本地数据库回测, 1: 东财量化历史数据回测, 2: 东财量化实盘监听数据回测
     buy_time = Column(DateTime)
     buy_price = Column(DECIMAL(10, 2))
@@ -154,7 +154,7 @@ class TradeRecord(StrategyBase):
 class ObservationVariable(StrategyBase):
     __tablename__ = 'observation_variable'
     variable_id = Column(Integer, primary_key=True, autoincrement=True)
-    entry_id = Column(Integer, ForeignKey('strategy_observation_entry.entry_id'), unique=True, nullable=False)
+    entry_id = Column(Integer, ForeignKey('strategy_observation_entry.entry_id', ondelete="CASCADE"), unique=True, nullable=False)
     variables = Column(JSONB, nullable=False)
     
     __table_args__ = (
@@ -254,8 +254,10 @@ class StrategyTask(ABC):
     def prepare_sell_pool(self, subscribe=False):
         with StrategySession() as session:
             # 查询未完成卖出的交易记录，并联结观察条目以获取股票代码
+            trade_date_dt = datetime.datetime.strptime(self.trade_date, '%Y%m%d')
             trade_records = self.strategy.query_trade_record_data(session=session, filters=[
-                TradeRecord.sell_price == None
+                TradeRecord.sell_price == None,
+                TradeRecord.buy_time < trade_date_dt
             ])
             
             # 将查询结果存入 observe_stocks_to_sell 字典
