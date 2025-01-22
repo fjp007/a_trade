@@ -35,11 +35,9 @@ class StockDailyData(Base):
         if (self.open*100 / self.pre_close - 100) > t_limit_open_condition and (self.high - 0.02 <= self.close) and  self.open - self.low > (self.close - self.open)*0.6:
             minute_datas = get_minute_data(self.ts_code, self.trade_date)
             first_limit_time = None
-            pre_low = None
             for data in minute_datas:
                 if not first_limit_time and (data.high*100 / self.pre_close - 100) > 9.7:
                     first_limit_time = data.trade_time
-                    pre_low = data.low
                 if first_limit_time and data.trade_time > first_limit_time and data.low < self.high:
                     # 封板后再开板
                     return True

@@ -15,7 +15,7 @@ from a_trade.strategy import (
 
 class StrategyParamsYugiS2(StrategyParams):
     # 冰点线定义，高于这条线，不做弱转强
-    open_time_threshold: int = Field(
+    open_time_threshold: str = Field(
         "14:00", 
         description="一字板炸板最早时间线"
     )
@@ -42,7 +42,16 @@ class StrategyTaskYugiS2(StrategyTask):
     策略任务类，用于封装日内策略操作, 包含准备观察池、订阅分时、取消订阅、买入股票、卖出股票。
     """
 
-    def schedule_task(self):
+    def schedule_task_flow(self):
+        if TradeCalendar.is_trade_day(self.trade_date):
+            self.schedule(closure=self.prepare_sell_pool, time="09:15:00")
+            self.schedule(closure=self.analysis_buy_stock, time="14:55:00")
+            self.schedule(closure=self.sell_stocks_on_the_end, time="15:00:00")
+            self.schedule(closure=self.update_trade_data, time="18:10:00")
+            super().schedule_task_flow()
+
+    def analysis_buy_stock(self):
+        self.strategy.clear_records(self.trade_date)
         limit_data_source = LimitDataSource(self.trade_date)
         for stock_code, stock_limit_info in limit_data_source.limit_failed_map.items():
             daily_data = limit_data_source.get_daily_data(stock_code)
@@ -53,7 +62,6 @@ class StrategyTaskYugiS2(StrategyTask):
                     if not first_open_time and minute_data.high < daily_data.high:
                         first_open_time = minute_data.trade_time
                         break
-                last_data = minutes_data[-1]
                 if datetime.datetime.strptime(first_open_time, "%Y-%m-%d %H:%M:%S").time() > datetime.datetime.strptime(strategy_params.open_time_threshold, "%H:%M").time():
                     pre_date = TradeCalendar.get_previous_trade_date(self.trade_date)
                     pre_limit_data_source = LimitDataSource(pre_date)
@@ -62,18 +70,20 @@ class StrategyTaskYugiS2(StrategyTask):
                         if pre_limit_info.continuous_limit_up_count > 1:
                             model = ObservedStockS2Model(first_open_time = first_open_time)
                             self.add_observation_entry_with_variable(trade_date=self.trade_date, stock_code=stock_code, stock_name=stock_limit_info.stock_name, variables=model.model_dump())
-                            self.buy_stock(stock_code=stock_code, buy_price=daily_data.close, buy_time=last_data.trade_time)
+        self.prepare_buy_pool()
+        for stock_code in self.observe_stocks_to_buy:
+            daily_data = limit_data_source.get_daily_data(stock_code)
+            trade_time = datetime.datetime.strptime(f"{self.trade_date} 15:00:00", "%Y%m%d %H:%M:%S")
+            self.buy_stock(stock_code=stock_code, buy_price=daily_data.close, buy_time=trade_time)
 
-    def prepare_observed_pool(self):
-        is_trade_date = super().prepare_observed_pool()
-        if is_trade_date:
-            for stock_code, record in self.observe_stocks_to_sell.items():
-                daily_data = get_stock_daily_data_for_day(stock_code, self.trade_date)
-                if not daily_data:
-                    continue
-
-                trade_time = datetime.datetime.strptime(self.trade_date, '%Y%m%d').replace(hour=15, minute=0, second=0, microsecond=0)
-                self.sell_stock(stock_code=stock_code, sell_price=daily_data.close, trade_time=trade_time)
+    def sell_stocks_on_the_end(self):
+        for stock_code, _ in self.observe_stocks_to_sell.items():
+            daily_data = get_stock_daily_data_for_day(stock_code, self.trade_date)
+            if not daily_data:
+                continue
+            
+            trade_time = datetime.datetime.strptime(self.trade_date, '%Y%m%d').replace(hour=15, minute=0, second=0, microsecond=0)
+            self.sell_stock(stock_code=stock_code, sell_price=daily_data.close, trade_time=trade_time)
 
     def daily_report(self):
         pass
@@ -110,7 +120,6 @@ class StrategyTaskYugiS2(StrategyTask):
                 raise
     
     def trade_did_end(self):
-        self.schedule_task()
         self.update_trade_data()
 
     def handle_buy_stock(self, stock_code: str, minute_data, trade_time: str):

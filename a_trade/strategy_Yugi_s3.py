@@ -32,17 +32,15 @@ class StrategyTaskYugiS3(StrategyTask):
     策略任务类，用于封装日内策略操作, 包含准备观察池、订阅分时、取消订阅、买入股票、卖出股票。
     """
 
-    def prepare_observed_pool(self):
-        pass
+    def schedule_task_flow(self):
+        if TradeCalendar.is_trade_day(self.trade_date):
+            super().schedule_task_flow()
 
     def daily_report(self):
         pass
 
     def msg_desc_from(self, stock_code: str, var: ObservationVariable) -> str:
         return ""
-    
-    def trade_did_end(self):
-        pass
 
     def handle_buy_stock(self, stock_code: str, minute_data, trade_time: str):
         """

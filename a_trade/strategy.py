@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlalchemy.orm import relationship, sessionmaker, declarative_base
 from sqlalchemy.exc import IntegrityError
 
-from a_trade.stock_subscription import StockSubscriptionBus
+from a_trade.time_schedule import TimeScheduleBus
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.stock_minute_data import get_minute_data
 from a_trade.wechat_bot import WechatBot
@@ -241,7 +241,7 @@ class StrategyTask(ABC):
 
         # 使用单一字典存储累计数据
         self.stock_data_map: Dict[str, StockMinuteModel] = {}
-        self.subscription = StockSubscriptionBus(trade_date)
+        self.schedule_bus = TimeScheduleBus(trade_date)
 
         self.observe_stocks_to_buy: Dict[str, Tuple[StrategyObservationEntry, ObservationVariable]] = {}
         self.buy_info_record_map: Dict[str, BuyInfoRecord] = {}
@@ -250,82 +250,79 @@ class StrategyTask(ABC):
         self.sell_info_record_map: Dict[str, SellInfoRecord] = {}
         self.enable_send_msg = enable_send_msg
         logging.info(f"策略任务已创建 {self.run_mode} {self.trade_date}")
+
+    def prepare_sell_pool(self, subscribe=False):
+        with StrategySession() as session:
+            # 查询未完成卖出的交易记录，并联结观察条目以获取股票代码
+            trade_records = self.strategy.query_trade_record_data(session=session, filters=[
+                TradeRecord.sell_price == None
+            ])
+            
+            # 将查询结果存入 observe_stocks_to_sell 字典
+            self.observe_stocks_to_sell = {
+                entry.stock_code: (trade_record, entry) for trade_record, entry, _ in trade_records
+            }
+
+            self.sell_info_record_map = {stock_code: SellInfoRecord() for stock_code in self.observe_stocks_to_sell.keys()}
+
+            if subscribe:
+                self.will_subscribe_stocks(list(self.observe_stocks_to_sell.keys()))
+
+    def prepare_buy_pool(self, subscribe=False):
+        with StrategySession() as session:
+            entry_results = self.strategy.query_observation_data(session=session, include_observation_variable=True, filters=[
+                StrategyObservationEntry.trade_date == self.trade_date
+            ])
+            
+            # 将查询结果存入observe_stocks_to_buy字典
+            self.observe_stocks_to_buy = {
+                entry.stock_code: (entry, var) for entry, var in entry_results
+            }
+            
+            self.buy_info_record_map = {stock_code: BuyInfoRecord() for stock_code in self.observe_stocks_to_buy.keys()}
+            if subscribe:
+                self.will_subscribe_stocks(list(self.observe_stocks_to_buy.keys()))
     
-    def prepare_observed_pool(self) -> bool:    
-        if self.run_mode != StrategyTaskMode.MODE_BACKTEST_LOCAL:
-            assert self.buy_callback is not None, "buy_callback 不能为空"
-            assert self.sell_callback is not None, "sell_callback 不能为空"
-            assert self.subscribe_callback is not None, "subscribe_callback 不能为空"
-            assert self.unsubscribe_callback is not None, "unsubscribe_callback 不能为空"
-        is_trade_date = TradeCalendar.is_trade_day(self.trade_date)
-        if is_trade_date:
-            with StrategySession() as session:
-                # 查询当前交易日的策略观察条目
-    
-                entry_results = self.strategy.query_observation_data(session=session, include_observation_variable=True, filters=[
-                    StrategyObservationEntry.trade_date == self.trade_date
-                ])
-                
-                # 将查询结果存入observe_stocks_to_buy字典
-                self.observe_stocks_to_buy = {
-                    entry.stock_code: (entry, var) for entry, var in entry_results
-                }
-                
-                # 查询未完成卖出的交易记录，并联结观察条目以获取股票代码
-                trade_records = self.strategy.query_trade_record_data(session=session, filters=[
-                    TradeRecord.sell_price == None,
-                    StrategyObservationEntry.trade_date < self.trade_date,
-                ])
-                
-                # 将查询结果存入 observe_stocks_to_sell 字典
-                self.observe_stocks_to_sell = {
-                    entry.stock_code: (trade_record, entry) for trade_record, entry, _ in trade_records
-                }
-                
-                self.buy_info_record_map = {stock_code: BuyInfoRecord() for stock_code in self.observe_stocks_to_buy.keys()}
-                self.sell_info_record_map = {stock_code: SellInfoRecord() for stock_code in self.observe_stocks_to_sell.keys()}
-                        
-                # 1) 整理“买入观察池”列表
-                buy_stocks = []
-                logging.info(f"{self.trade_date} 买入观察池({len(self.observe_stocks_to_buy)})")
-                for stock_code, (entry, var) in self.observe_stocks_to_buy.items():
-                    entry: StrategyObservationEntry
-                    var: ObservationVariable
-                    item = (stock_code, entry.stock_name, self.msg_desc_from(stock_code, var))
-                    buy_stocks.append(item)
-                    logging.info(item)
+    def notice_observed_pool(self):    
+        # 1) 整理“买入观察池”列表
+        buy_stocks = []
+        logging.info(f"{self.trade_date} 买入观察池({len(self.observe_stocks_to_buy)})")
+        for stock_code, (entry, var) in self.observe_stocks_to_buy.items():
+            entry: StrategyObservationEntry
+            var: ObservationVariable
+            item = (stock_code, entry.stock_name, self.msg_desc_from(stock_code, var))
+            buy_stocks.append(item)
+            logging.info(item)
 
-                # 2) 整理“卖出(持仓)观察池”列表
-                sell_stocks = []
-                logging.info(f"{self.trade_date} 持仓观察池({len(self.observe_stocks_to_sell)})")
-                for stock_code, (_, entry) in self.observe_stocks_to_sell.items():
-                    entry: StrategyObservationEntry
-                    item = (entry.stock_code, entry.stock_name)
-                    sell_stocks.append(item)
-                    logging.info(item)
+        # 2) 整理“卖出(持仓)观察池”列表
+        sell_stocks = []
+        logging.info(f"{self.trade_date} 持仓观察池({len(self.observe_stocks_to_sell)})")
+        for stock_code, (_, entry) in self.observe_stocks_to_sell.items():
+            entry: StrategyObservationEntry
+            item = (entry.stock_code, entry.stock_name)
+            sell_stocks.append(item)
+            logging.info(item)
 
-                logging.info(f"开始微信通知 {self._enable_send_msg()}")
-                if self._enable_send_msg():
-                    # 3) 调用微信机器人发送观察池消息
-                    WechatBot.send_observe_pool_msg(self.trade_date, buy_stocks, sell_stocks)
+        logging.info(f"开始微信通知 {self._enable_send_msg()}")
+        if self._enable_send_msg():
+            # 3) 调用微信机器人发送观察池消息
+            WechatBot.send_observe_pool_msg(self.trade_date, buy_stocks, sell_stocks)
 
-        return is_trade_date
-        
     def _enable_send_msg(self) -> bool:
         if self.run_mode == StrategyTaskMode.MODE_LIVE_EMQUANT:
             return True
         return self.enable_send_msg
 
-    def will_subscribe_stocks(self):
+    def will_subscribe_stocks(self, observed_codes: List[str]):
         """
         订阅股票数据并设置回调
         """
-        if not self.observe_stocks_to_buy and not self.observe_stocks_to_sell:
-            logging.info(f"{self.trade_date} 没有需要处理的股票")
+        print(f"will_subscribe_stocks {observed_codes}")
+        if not observed_codes:
+            logging.info(f"{self.trade_date} 本次没有订阅股票")
             return
 
-        observed_codes = list(set(list(self.observe_stocks_to_buy.keys()) + list(self.observe_stocks_to_sell.keys())))
-        self.subscription.subscribe(observed_codes, self.on_minute_data)
+        self.schedule_bus.subscribe(observed_codes, self.on_minute_data)
         if self.run_mode != StrategyTaskMode.MODE_BACKTEST_LOCAL:
             self.subscribe_callback(observed_codes)
 
@@ -334,7 +331,7 @@ class StrategyTask(ABC):
         if stop_type != SubscribeStopType.STOPTYPE_SELL and stock_code in self.observe_stocks_to_sell:
             stop_enable = False
         if stop_enable:
-            first_stop = self.subscription.unsubscribe(stock_code)
+            first_stop = self.schedule_bus.unsubscribe(stock_code)
             if first_stop and self.run_mode != StrategyTaskMode.MODE_BACKTEST_LOCAL:
                 self.unsubscribe_callback(stock_code)
             if first_stop and stop_type == SubscribeStopType.STOPTYPE_CANCEL and self._enable_send_msg():
@@ -398,7 +395,7 @@ class StrategyTask(ABC):
 
     def start_local_trade(self):
         if self.run_mode == StrategyTaskMode.MODE_BACKTEST_LOCAL:
-            self.subscription.start_trade()
+            self.schedule_bus.start_trade()
 
     def add_observation_entry_with_variable(self, trade_date: str, stock_code: str, stock_name: str, variables: dict = None) -> Optional[StrategyObservationEntry]:
         """
@@ -510,11 +507,18 @@ class StrategyTask(ABC):
 
     def config_callback(self, buy_callback: Optional[Callable] = None, sell_callback: Optional[Callable] = None,
                       subscribe_callback: Optional[Callable] = None, unsubscribe_callback: Optional[Callable] = None,
-                 enable_send_msg: bool = False):
+                 schedule_callback: Optional[Callable] = None):
         self.buy_callback = buy_callback
         self.sell_callback = sell_callback
         self.subscribe_callback = subscribe_callback
         self.unsubscribe_callback = unsubscribe_callback
+        self.schedule_callback = schedule_callback
+
+    def schedule(self, closure: Optional[Callable], time: str):
+        if self.run_mode == StrategyTaskMode.MODE_BACKTEST_LOCAL:
+            self.schedule_bus.register_api_call(time, closure)
+        else:
+            self.schedule_callback(time, closure)
         
     @abstractmethod
     def handle_sell_stock(self, stock_code: str, minute_data, trade_time: str):
@@ -543,15 +547,20 @@ class StrategyTask(ABC):
         pass
 
     @abstractmethod
-    def trade_did_end(self):
-        """
-        当日交易结束操作，具体逻辑由子类实现。
-        """
+    def daily_report(self):
         pass
 
     @abstractmethod
-    def daily_report(self):
-        pass
+    def schedule_task_flow(self):
+        """
+        定制当天工作流程，具体逻辑由子类实现。
+        """
+        if self.run_mode != StrategyTaskMode.MODE_BACKTEST_LOCAL:
+            assert self.buy_callback is not None, "buy_callback 不能为空"
+            assert self.sell_callback is not None, "sell_callback 不能为空"
+            assert self.subscribe_callback is not None, "subscribe_callback 不能为空"
+            assert self.unsubscribe_callback is not None, "unsubscribe_callback 不能为空"
+            assert self.schedule_callback is not None, "schedule_callback 不能为空"
 
 
 class Strategy(ABC):
@@ -706,10 +715,8 @@ class Strategy(ABC):
 
     def strategy_simulation_daily_work(self, trade_date):
         task = self.generate_daily_task(trade_date)
-        task.prepare_observed_pool()
-        task.will_subscribe_stocks()
+        task.schedule_task_flow()
         task.start_local_trade()
-        task.trade_did_end()
 
     def clear_records(self, trade_date) -> None:
         """
@@ -805,7 +812,7 @@ class Strategy(ABC):
 
             valid_records = [record for record in all_records if record[0].sell_price!=None]
             if len(valid_records) < len(all_records) and self.run_mode == StrategyTaskMode.MODE_BACKTEST_LOCAL:
-                logging.warning(f"{self.start_date} - {self.end_date} 有未结算的交易数据")              
+                logging.warning(f"{start_date} - {end_date} 有未结算的交易数据")              
 
             # 总交易数
             total_count = len(valid_records)

@@ -184,35 +184,40 @@ class StrategyTaskYugiS1(StrategyTask):
     """
     策略任务类，用于封装日内策略操作, 包含准备观察池、订阅分时、取消订阅、买入股票、卖出股票。
     """
+    def schedule_task_flow(self):
+        if TradeCalendar.is_trade_day(self.trade_date):
+            self.schedule(closure=self.prepare_observed_pool, time="09:15:00")
+            self.schedule(closure=self.trade_did_end, time="18:30:00")
+            super().schedule_task_flow()
+        
     def prepare_observed_pool(self):
+        self.prepare_buy_pool(subscribe=True)
+        self.prepare_sell_pool(subscribe=True)
+        self.notice_observed_pool()
+
         self.pre_stock_daily_map: Dict[str, StockDailyData] = {}
-        """
-        准备观察池股票，并将结果写入类变量。
-        """
-        is_trade_date = super().prepare_observed_pool()
-        if is_trade_date:
-            for _, sell_info_record in self.sell_info_record_map.items():
-                sell_info_record.other_data = SellInfoRecordDataYugiS1()
+        for _, sell_info_record in self.sell_info_record_map.items():
+            sell_info_record.other_data = SellInfoRecordDataYugiS1()
 
-            self.buy_var_model_map: Dict[str, ObservedStockS1Model] = {}
-            for stock_code, (_, var) in self.observe_stocks_to_buy.items():
-                self.buy_var_model_map[stock_code] = ObservedStockS1Model.from_observation_variable(var)
+        self.buy_var_model_map: Dict[str, ObservedStockS1Model] = {}
+        for stock_code, (_, var) in self.observe_stocks_to_buy.items():
+            self.buy_var_model_map[stock_code] = ObservedStockS1Model.from_observation_variable(var)
 
-            self.pre_trade_date = TradeCalendar.get_previous_trade_date(self.trade_date)
-            with Session() as session:
-                stock_codes = list(self.sell_info_record_map.keys()) + list(self.buy_info_record_map.keys())
-                pre_stock_daily_results = session.query(StockDailyData).filter(
-                    StockDailyData.ts_code.in_(stock_codes),
-                    StockDailyData.trade_date == self.pre_trade_date
-                ).all()
-                self.pre_limit_data_source = LimitDataSource(self.pre_trade_date)
-                for pre_daily_data in pre_stock_daily_results:
-                    self.pre_stock_daily_map[pre_daily_data.ts_code] = pre_daily_data
+        self.pre_trade_date = TradeCalendar.get_previous_trade_date(self.trade_date)
+        with Session() as session:
+            stock_codes = list(self.sell_info_record_map.keys()) + list(self.buy_info_record_map.keys())
+            pre_stock_daily_results = session.query(StockDailyData).filter(
+                StockDailyData.ts_code.in_(stock_codes),
+                StockDailyData.trade_date == self.pre_trade_date
+            ).all()
+            self.pre_limit_data_source = LimitDataSource(self.pre_trade_date)
+            for pre_daily_data in pre_stock_daily_results:
+                self.pre_stock_daily_map[pre_daily_data.ts_code] = pre_daily_data
 
-                for stock_code in stock_codes:
-                    if stock_code not in self.pre_stock_daily_map:
-                        last_daily_data = list(StockDailyDataSource(stock_code=stock_code, end_date=self.trade_date, previous_delta=1).daily_data_cache.values())[0]
-                        self.pre_stock_daily_map[stock_code] = last_daily_data
+            for stock_code in stock_codes:
+                if stock_code not in self.pre_stock_daily_map:
+                    last_daily_data = list(StockDailyDataSource(stock_code=stock_code, end_date=self.trade_date, previous_delta=1).daily_data_cache.values())[0]
+                    self.pre_stock_daily_map[stock_code] = last_daily_data
 
     def daily_report(self):
         with StrategySession() as session:
@@ -360,7 +365,7 @@ class StrategyTaskYugiS1(StrategyTask):
             return
 
     def handle_sell_stock(self, stock_code: str, minute_data, trade_time: str):
-        logging.info(f"{trade_time} {stock_code} handle_sell_stock start")
+        logging.info(f"{trade_time} {stock_code} handle_sell_stock")
         sell_info_record_map = self.sell_info_record_map
         observer_sell_info: Optional[SellInfoRecord] = sell_info_record_map[stock_code]
         sell_data = cast(SellInfoRecordDataYugiS1, observer_sell_info.other_data)
@@ -468,7 +473,7 @@ class StrategyTaskYugiS1(StrategyTask):
 
     def analysis_observed_stocks(self):
         next_date = TradeCalendar.get_next_trade_date(self.trade_date)
-        self.strategy.clear_records(next_date)
+        self.strategy.clexrar_records(next_date)
         with Session() as session:
             trade_date = self.trade_date
             market_data_today =  session.query(MarketDailyData).filter(MarketDailyData.trade_date.in_([trade_date])).first()
@@ -653,7 +658,6 @@ class StrategyTaskYugiS1(StrategyTask):
                         daily_position = "最高空间板"
                     elif stock_limit_info.continuous_limit_up_count == second_limit_count:
                         daily_position = "次高空间板"
-                    print(f"location: {stock_limit_info.stock_name} {daily_position}")
                     is_t_limit = (stock_limit_info in t_stocks)
                     observed_model = ObservedStockS1Model(
                         concept_name=concept_name,
