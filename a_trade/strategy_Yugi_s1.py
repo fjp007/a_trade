@@ -293,7 +293,7 @@ class StrategyTaskYugiS1(StrategyTask):
         buy_info_record_map = self.buy_info_record_map
         observer_buy_info: Optional[BuyInfoRecord] = buy_info_record_map[stock_code]
         
-        observed_stock, observed_var = self.observe_stocks_to_buy.get(stock_code)
+        observed_stock, _ = self.observe_stocks_to_buy.get(stock_code)
         observed_var_mode = self.buy_var_model_map.get(stock_code)
         stock_name =observed_stock.stock_name
         
@@ -304,7 +304,6 @@ class StrategyTaskYugiS1(StrategyTask):
         pre_close = self.pre_stock_daily_map[stock_code].close
 
         curent_open_rate = (open_price/pre_close - 1)*100
-        logging.info(f"{trade_time} {stock_code} handle_buy_stock data ready {current_time}")
         # 初始化策略类型
         if observer_buy_info.tactics_type < 0:
             if open_price > pre_close:
@@ -324,6 +323,14 @@ class StrategyTaskYugiS1(StrategyTask):
             logging.info(f"{trade_time} {stock_code} 买入策略 {observer_buy_info.tactics_type}")
         else:
             # 策略执行逻辑
+            if observed_var_mode.concept_position == '龙一' and curent_open_rate < strategy_params.buy_in_observe_dead_pch:
+                logging.info(f"{observed_var_mode.concept_name} {stock_name} 龙一跌幅 {curent_open_rate}, 停止同板块监听")
+                for other_stock_code, _ in self.buy_var_model_map.items():
+                    other_var_mode = self.buy_var_model_map[other_stock_code]
+                    if other_var_mode.concept_name == observed_var_mode.concept_name:
+                        other_info = buy_info_record_map[other_stock_code]
+                        other_info.stop_buy = True
+                        self.stop_subscribe_buy_stock(other_stock_code)
             if observed_var_mode.is_t_limit:
                 if close_price < observer_buy_info.stop_observe_price:
                     logging.info(f"{trade_time} {stock_name}  {stock_code} 停止监听原因: 低于停止监听线 {observer_buy_info.stop_observe_price}, 策略类型 {observer_buy_info.tactics_type}")
@@ -346,15 +353,6 @@ class StrategyTaskYugiS1(StrategyTask):
                             logging.info(f"{self.trade_date} {other_stock.stock_name} {trade_time} 停止监听原因: 已买入同板块股票")
                             self.stop_subscribe_buy_stock(other_stock_code,  SubscribeStopType.STOPTYPE_CANCEL)
 
-        if observed_var_mode.concept_position == '龙一' and curent_open_rate < strategy_params.buy_in_observe_dead_pch:
-            logging.info(f"{observed_var_mode.concept_name} {stock_name} 龙一跌幅 {curent_open_rate}, 停止同板块监听")
-            for other_stock_code, _ in self.buy_var_model_map.items():
-                other_var_mode = self.buy_var_model_map[other_stock_code]
-                if other_var_mode.concept_name == observed_var_mode.concept_name:
-                    other_info = buy_info_record_map[other_stock_code]
-                    other_info.stop_buy = True
-                    self.stop_subscribe_buy_stock(other_stock_code)
-
         if trade_time > "09:40":
             logging.info(f"{trade_time} 超出买入策略执行时间范围，停止监听 {stock_name}")
             observer_buy_info.stop_buy = True
@@ -375,7 +373,6 @@ class StrategyTaskYugiS1(StrategyTask):
         current_time = minute_data['bob']
         pre_close = self.pre_stock_daily_map[stock_code].close
 
-        logging.info(f"{trade_time} {stock_code} handle_sell_stock data ready {current_time} {avg}")
         if observer_sell_info.tactics_type < 0:
             # 指定卖出策略
             pre_stock_daily_data: Optional[StockDailyData] = self.pre_stock_daily_map[stock_code]

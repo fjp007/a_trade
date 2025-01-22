@@ -284,25 +284,28 @@ class StrategyTask(ABC):
                 
                 self.buy_info_record_map = {stock_code: BuyInfoRecord() for stock_code in self.observe_stocks_to_buy.keys()}
                 self.sell_info_record_map = {stock_code: SellInfoRecord() for stock_code in self.observe_stocks_to_sell.keys()}
+                        
+                # 1) 整理“买入观察池”列表
+                buy_stocks = []
+                logging.info(f"{self.trade_date} 买入观察池({len(self.observe_stocks_to_buy)})")
+                for stock_code, (entry, var) in self.observe_stocks_to_buy.items():
+                    entry: StrategyObservationEntry
+                    var: ObservationVariable
+                    item = (stock_code, entry.stock_name, self.msg_desc_from(stock_code, var))
+                    buy_stocks.append(item)
+                    logging.info(item)
 
-                logging.info(f"{self.trade_date} 买入观察池股票准备完成，共 {len(self.observe_stocks_to_buy)} 只股票  {self.observe_stocks_to_buy.keys()}")
-                logging.info(f"{self.trade_date} 持仓观察池股票准备完成，共 {len(self.observe_stocks_to_sell)} 只股票 {self.observe_stocks_to_sell.keys()}")
+                # 2) 整理“卖出(持仓)观察池”列表
+                sell_stocks = []
+                logging.info(f"{self.trade_date} 持仓观察池({len(self.observe_stocks_to_sell)})")
+                for stock_code, (_, entry) in self.observe_stocks_to_sell.items():
+                    entry: StrategyObservationEntry
+                    item = (entry.stock_code, entry.stock_name)
+                    sell_stocks.append(item)
+                    logging.info(item)
+
                 logging.info(f"开始微信通知 {self._enable_send_msg()}")
-
                 if self._enable_send_msg():
-                    # 1) 整理“买入观察池”列表
-                    buy_stocks = []
-                    for stock_code, (entry, var) in self.observe_stocks_to_buy.items():
-                        entry: StrategyObservationEntry
-                        var: ObservationVariable
-                        # 也可以添加更多信息，比如 (stock_code, stock_name, concept_name...)
-                        buy_stocks.append((stock_code, entry.stock_name, self.msg_desc_from(stock_code, var)))
-
-                    # 2) 整理“卖出(持仓)观察池”列表
-                    sell_stocks = []
-                    for stock_code, (_, entry) in self.observe_stocks_to_sell.items():
-                        entry: StrategyObservationEntry
-                        sell_stocks.append((entry.stock_code, entry.stock_name))
                     # 3) 调用微信机器人发送观察池消息
                     WechatBot.send_observe_pool_msg(self.trade_date, buy_stocks, sell_stocks)
 
