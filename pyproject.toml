@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "a-trade"
-version = "1.5.13"
+version = "1.5.14"
 description = ""
 authors = ["fengjianpeng <miracle1627@163.com>"]
 readme = "README.md"
