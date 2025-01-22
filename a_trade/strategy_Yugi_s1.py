@@ -277,8 +277,8 @@ class StrategyTaskYugiS1(StrategyTask):
                 raise
 
     def trade_did_end(self):
-        self.update_trade_data()
         self.analysis_observed_stocks()
+        self.update_trade_data()
 
     def handle_buy_stock(self, stock_code: str, minute_data, trade_time: str):
         """
@@ -467,6 +467,8 @@ class StrategyTaskYugiS1(StrategyTask):
         super().buy_stock(stock_code, buy_price, buy_time)
 
     def analysis_observed_stocks(self):
+        next_date = TradeCalendar.get_next_trade_date(self.trade_date)
+        self.strategy.clear_records(next_date)
         with Session() as session:
             trade_date = self.trade_date
             market_data_today =  session.query(MarketDailyData).filter(MarketDailyData.trade_date.in_([trade_date])).first()
@@ -476,6 +478,7 @@ class StrategyTaskYugiS1(StrategyTask):
             # 提前退出条件
             if market_data_sentiment > strategy_params.cold_sentiment_line:
                 return
+            
 
             first_date_concept_to_stocks = {}
             first_limit_count = 0
@@ -644,7 +647,6 @@ class StrategyTaskYugiS1(StrategyTask):
                     continue
                 
                 for stock in concept_observed_pool:
-                    next_date = TradeCalendar.get_next_trade_date(trade_date)
                     stock_limit_info: Optional[LimitUpTushare] = stock
                     daily_position=None
                     if stock_limit_info.continuous_limit_up_count > second_limit_count:

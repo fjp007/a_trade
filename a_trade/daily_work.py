@@ -87,14 +87,15 @@ def main(today=None):
     # if daily_report_send_failed:
     #     send_msg('text', "今日复盘日报发送失败")
 
-    start_date = last_full_empty_date if last_full_empty_date else today
-    strategy = StrategyYugiS1()
-    def run_strategy(trade_date):
-        task = strategy.generate_daily_task(trade_date)
-        task.trade_did_end()
-        if trade_date == today:
-            StrategyYugiS1().generate_daily_task(today).daily_report()
-    TradeCalendar.iterate_trade_days(start_date, today, run_strategy)
+    if env != 'release':
+        start_date = last_full_empty_date if last_full_empty_date else today
+        strategy = StrategyYugiS1()
+        def run_strategy(trade_date):
+            task = strategy.generate_daily_task(trade_date)
+            task.trade_did_end()
+            if trade_date == today:
+                StrategyYugiS1().generate_daily_task(today).daily_report()
+        TradeCalendar.iterate_trade_days(start_date, today, run_strategy)
 
     if env == 'test':
         merge_db_data_from_base_to_sync()

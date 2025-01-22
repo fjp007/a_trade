@@ -711,7 +711,7 @@ class Strategy(ABC):
         task.start_local_trade()
         task.trade_did_end()
 
-    def clear_records(self, start_date: str, end_date: str) -> None:
+    def clear_records(self, trade_date) -> None:
         """
         清理指定日期范围内的当前策略版本的观察数据
 
@@ -726,8 +726,7 @@ class Strategy(ABC):
             try:
                 # 构建删除条件，限定当前策略版本
                 delete_condition = and_(
-                    StrategyObservationEntry.trade_date >= start_date,
-                    StrategyObservationEntry.trade_date <= end_date,
+                    StrategyObservationEntry.trade_date == trade_date,
                     StrategyObservationEntry.strategy_id == self.strategy_id,
                     StrategyObservationEntry.version_id == self.version_id
                 )
@@ -759,7 +758,6 @@ class Strategy(ABC):
                 raise
 
     def local_simulation(self, start_date: str, end_date: str) -> None:
-        self.clear_records(start_date, end_date)
         TradeCalendar.iterate_trade_days(start_date, end_date, self.strategy_simulation_daily_work)
 
     @abstractmethod
