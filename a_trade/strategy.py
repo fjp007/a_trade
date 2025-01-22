@@ -516,8 +516,6 @@ class StrategyTask(ABC):
     def schedule(self, closure: Optional[Callable], time: str):
         if self.run_mode == StrategyTaskMode.MODE_BACKTEST_LOCAL:
             self.schedule_bus.register_api_call(time, closure)
-        else:
-            self.schedule_callback(time, closure)
         
     @abstractmethod
     def handle_sell_stock(self, stock_code: str, minute_data, trade_time: str):
@@ -559,7 +557,6 @@ class StrategyTask(ABC):
             assert self.sell_callback is not None, "sell_callback 不能为空"
             assert self.subscribe_callback is not None, "subscribe_callback 不能为空"
             assert self.unsubscribe_callback is not None, "unsubscribe_callback 不能为空"
-            assert self.schedule_callback is not None, "schedule_callback 不能为空"
 
 
 class Strategy(ABC):
