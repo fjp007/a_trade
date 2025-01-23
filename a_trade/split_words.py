@@ -1,16 +1,28 @@
 # coding: utf-8
 import jieba
-from a_trade.db_base import Session
 import logging
 from a_trade.settings import get_project_path
+from pathlib import Path
+from typing import Dict, List, NoReturn, Set, Any
+from a_trade.concept_manager import ConceptManager
 
-def get_frequecy_dict_path() -> str:
+def get_frequecy_dict_path() -> Path:
+    """获取词频字典路径
+    
+    Returns:
+        Path: 词频字典文件路径
+    """
     project_path = get_project_path()
     frequency_dict_path = project_path / 'concept_slip_words_frequecy.txt'
     return frequency_dict_path
 
-def load_custom_dictionary():
-    """加载自定义词典"""
+def load_custom_dictionary() -> NoReturn:
+    """加载自定义词典
+    
+    Raises:
+        FileNotFoundError: 当词频字典文件不存在时
+        Exception: 加载字典时发生错误
+    """
     frequency_dict_path = get_frequecy_dict_path()
     
     # 检查文件是否存在
@@ -28,17 +40,19 @@ def load_custom_dictionary():
 
 load_custom_dictionary()
 
-def prepare_split_concepts():
-    from a_trade.concept_manager import conceptManager
-
-    session = Session()
-    concept_word_to_frequecy = {}
-    result = conceptManager.concept_info_cache.values()
-    ignore_words = ['(',')','Ⅲ']
+def prepare_split_concepts() -> NoReturn:
+    """准备分词概念数据
+    
+    统计概念词频并写入词频字典文件
+    """
+    concept_word_to_frequecy: Dict[str, int] = {}
+    result = ConceptManager.concept_info_cache.values()
+    ignore_words: Set[str] = {'(', ')', 'Ⅲ'}
+    
     # 统计词频
     for concept_info in result:
-        concept_name = concept_info.name
-        words = jieba.lcut(concept_name)
+        concept_name: str = concept_info.name
+        words: List[str] = jieba.lcut(concept_name)
         for word in words:
             if word not in ignore_words:
                 if word in concept_word_to_frequecy:
@@ -47,12 +61,15 @@ def prepare_split_concepts():
                     concept_word_to_frequecy[word] = 1
 
     # 将词频按降序排序
-    sorted_concept_word_to_frequecy = dict(sorted(concept_word_to_frequecy.items(), key=lambda item: item[1], reverse=True))
-    frequency_dict_path = get_frequecy_dict_path()
+    sorted_concept_word_to_frequecy: Dict[str, int] = dict(
+        sorted(concept_word_to_frequecy.items(), key=lambda item: item[1], reverse=True)
+    )
+    frequency_dict_path: Path = get_frequecy_dict_path()
+    
     # 将词频放大1000倍并写入user_dict.txt文件
     with open(frequency_dict_path, 'w', encoding='utf-8') as f:
         for word, freq in sorted_concept_word_to_frequecy.items():
-            adjusted_freq = freq * 100000000
+            adjusted_freq: int = freq * 100000000
             f.write(f"{word} {adjusted_freq}\n")
 
     print(f"概念板块词频因子统计成功: {frequency_dict_path}")

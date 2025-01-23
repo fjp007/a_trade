@@ -6,6 +6,7 @@ import logging
 import a_trade.settings
 import ast
 import json
+from typing import List, Optional
 from a_trade.llm_caller_factory import LLMCallerFactory
 from dotenv import load_dotenv
 # 获取环境变量
@@ -15,11 +16,18 @@ proxy_http_url = os.getenv('PROXY_HTTP')
 # 加载环境变量
 load_dotenv()
 
-def analyze_key_word_with_limit_reason(limit_reason, jieba_words):
-    logging.info(f"即将openai调用对{limit_reason}进行联想与分词")
+def analyze_key_word_with_limit_reason(limit_reason: str, jieba_words: List[str]) -> List[str]:
     """
     调用 OpenAI GPT-4o 获取涨停原因联想分词
+    
+    Args:
+        limit_reason (str): 股票的涨停原因
+        jieba_words (List[str]): 无法帮助分析板块的关键词数组
+        
+    Returns:
+        List[str]: 联想分词后的关键词数组，每个关键词不超过4个字，最多4个元素
     """
+    logging.info(f"即将openai调用对{limit_reason}进行联想与分词")
     system_prompt = f"""
 我将为你提供一只股票的涨停原因。请你为我通过总结+联想的方式找到涨停原因的关键词数组。我希望这个关键词数组可以有助于我找到涨停原因背后的板块名称。
 **规则: **
@@ -73,18 +81,14 @@ def analyze_key_word_with_limit_reason(limit_reason, jieba_words):
 我期待你输出: ['重组']
 """
     
-
-    # 将分析数据作为用户输入
     user_prompt = f"""
 请为我分析下面的数据:
 涨停原因: {limit_reason}
 失败关键词: {jieba_words}
 """
     
-    # 获取 LLM 调用器，默认使用 OpenAI
     caller = LLMCallerFactory.get_caller("openai")
     
-    # 调用文本模型API
     try:
         response_text = caller.call_text_model_api(
             system_prompt=system_prompt,
@@ -99,18 +103,27 @@ def analyze_key_word_with_limit_reason(limit_reason, jieba_words):
         logging.info(f"涨停原因 '{limit_reason}' 通过 OpenAI 联想分词结果: {key_word_list}")
         return key_word_list
     except (ValueError, SyntaxError) as e:
-        # OpenAI返回格式偶尔不受控，重试
         logging.error(f"LLM 联想分词解码错误: {e}, 返回文本是 {response_text}")
-        # 可以选择重新调用或其他错误处理方式，这里选择重新调用
         return analyze_key_word_with_limit_reason(limit_reason, jieba_words)
 
-def analyze_related_concept_with_limit_reason(limit_reason, concept_names, search_content=None):
+def analyze_related_concept_with_limit_reason(limit_reason: str, concept_names: List[str], search_content: Optional[str] = None) -> dict:
+    """
+    调用 OpenAI GPT-4o 获取涨停原因联想板块
+    
+    Args:
+        limit_reason (str): 股票的涨停原因
+        concept_names (List[str]): 可能的板块名称数组
+        search_content (Optional[str]): 涨停原因里陌生术语的背景信息，可选
+        
+    Returns:
+        dict: 包含以下字段的字典:
+            - output (List[str]): 与涨停原因相关的板块名称数组
+            - reason (str): 推理过程
+            - unknown (Optional[str]): 陌生术语或不常见术语，可选
+    """
     if not concept_names:
         return {"output": []}
-    """
-    调用 OpenAI GPT-4o 获取涨停原因联想分词
-    """
-    # 如果 search_content 非空，则补充背景信息
+    
     background_info = search_content if search_content else ""
     system_prompt = f"""
 我将为你提供一只股票的涨停原因，以及该股票可能的板块名称数组、可能还会提供涨停原因里陌生术语的背景信息。请你为我从数组范围内找到与涨停原因具有相关性的板块名称。
@@ -152,10 +165,8 @@ def analyze_related_concept_with_limit_reason(limit_reason, concept_names, searc
 板块名称数组: {concept_names}
 {background_info}
     """
-    # 获取 LLM 调用器，默认使用 OpenAI
     caller = LLMCallerFactory.get_caller("openai")
     
-    # 调用文本模型API
     try:
         response_text = caller.call_text_model_api(
             system_prompt=system_prompt,

@@ -3,6 +3,7 @@
 import os
 import logging
 import json
+from typing import Dict, List, Optional, Tuple, Any
 from sqlalchemy import Column, String, Float, Integer, func, and_
 
 from a_trade.db_base import Base, engine, Session, String
@@ -24,18 +25,18 @@ class LimitDailyAttributionMedia(Base):
     category = Column(String)
 Base.metadata.create_all(engine)
 
-def translate_image_to_concept_for_day(trade_date):
+def translate_image_to_concept_for_day(trade_date: str) -> None:
     translate_image_to_json_for_day(trade_date)
     traslate_json_to_db(trade_date)
 
-def translate_image_to_json_for_day(trade_date):
+def translate_image_to_json_for_day(trade_date: str) -> None:
     image_dir = os.path.join(get_project_path(), 'media_data', trade_date, 'tables')
     logging.info(f"即将处理图片文件夹 {image_dir}")
     if not os.path.exists(image_dir):
         logging.warning(f"图片文件不存在: {image_dir}")
         return
     
-    black_image_path = None
+    black_image_path: Optional[str] = None
     json_path = os.path.join(get_project_path(), 'media_data', trade_date, 'daily_concept.json')
     # 如果json文件存在则删除
     if os.path.exists(json_path):
@@ -64,7 +65,7 @@ def translate_image_to_json_for_day(trade_date):
                 json_data = analyze_concept_datas_from_media_image(file_path)
                 
                 # 处理JSON文件合并
-                existing_data = {}
+                existing_data: Dict[str, Any] = {}
                 if os.path.exists(json_path):
                     try:
                         with open(json_path, 'r', encoding='utf-8') as f:
@@ -95,7 +96,7 @@ def translate_image_to_json_for_day(trade_date):
         except Exception as e:
             logging.error(f"处理图片失败: {file_path}, 错误: {e}")
 
-def traslate_json_to_db(trade_date):
+def traslate_json_to_db(trade_date: str) -> None:
     """
     JSON文件数据结构如下
     {
@@ -121,16 +122,16 @@ def traslate_json_to_db(trade_date):
     try:
         # 读取JSON文件
         with open(json_path, 'r', encoding='utf-8') as f:
-            concept_data = json.load(f)
+            concept_data: Dict[str, Any] = json.load(f)
         # 将数据转换为LimitDailyAttributionMedia对象
-        media_objects = []
+        media_objects: List[LimitDailyAttributionMedia] = []
         # 查询当日所有归因数据
         existing_attributions = session.query(LimitDailyAttribution).filter(
             LimitDailyAttribution.trade_date == trade_date
         ).all()
 
         # 构建股票归因旧数据映射，stock_name到(stock_code, concept_names)的映射
-        stock_concept_map = {}
+        stock_concept_map: Dict[str, Dict[str, Any]] = {}
         for attribution in existing_attributions:
             if attribution.stock_name not in stock_concept_map:
                 stock_concept_map[attribution.stock_name] = {
@@ -142,7 +143,7 @@ def traslate_json_to_db(trade_date):
 
         today_limit_source = LimitDataSource(trade_date)
         name_code_map = today_limit_source.get_name_to_code()
-        def name_to_code(stock_name, stock_code):
+        def name_to_code(stock_name: str, stock_code: Optional[str]) -> str:
             if stock_name in name_code_map:
                 return name_code_map[stock_name]
             else:
@@ -152,7 +153,7 @@ def traslate_json_to_db(trade_date):
                 assert False, f" {stock_name} {stock_code} 非法"
 
         # 构建股票归因新数据映射
-        new_stock_concept_map = {}
+        new_stock_concept_map: Dict[str, Dict[str, Any]] = {}
         # 遍历一级分类
         for category, concepts in concept_data.items():
             # 如果category包含ignore_category中的任意元素，则跳过
@@ -210,7 +211,7 @@ def traslate_json_to_db(trade_date):
                         media_objects.append(media_obj)
 
         # 检查是否有旧数据里的股票但未被新数据归因
-        missing_stocks = []
+        missing_stocks: List[str] = []
         for stock_name in stock_concept_map:
             if stock_name not in new_stock_concept_map:
                 missing_stocks.append(stock_name)
@@ -232,7 +233,7 @@ def traslate_json_to_db(trade_date):
     finally:
         session.close()
 
-def translate_image_to_concept_during(start_date, end_date):
+def translate_image_to_concept_during(start_date: str, end_date: str) -> None:
     with Session() as session:
         try:
             # 删除指定日期范围内的数据

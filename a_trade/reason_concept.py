@@ -1,5 +1,5 @@
 # coding: utf-8
-from a_trade.db_base import engine, Base, Session
+from a_trade.db_base import Base, Session
 from sqlalchemy import Column, String, or_, and_
 import os
 import json

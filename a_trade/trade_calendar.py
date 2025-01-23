@@ -7,7 +7,7 @@ from a_trade.settings import _get_tushare
 from sqlalchemy import Column, String, Integer
 from a_trade.db_base import Session, Base
 import logging
-from typing import Optional
+from typing import Optional, List, Callable
 
 # 定义数据库模型
 class TradeCalendar(Base):
@@ -18,7 +18,7 @@ class TradeCalendar(Base):
     pretrade_date = Column(String)
 
     @staticmethod
-    def validate_date_range(start_date, end_date):
+    def validate_date_range(start_date: str, end_date: str) -> bool:
         """验证日期范围的有效性"""
         if datetime.datetime.strptime(start_date, "%Y%m%d") > datetime.datetime.strptime(end_date, "%Y%m%d"):
             logging.warning(f"开始日期 {start_date} 晚于结束日期 {end_date}, 无效参数")
@@ -26,7 +26,7 @@ class TradeCalendar(Base):
         return True
 
     @staticmethod
-    def update_trade_calendar(end_date=None):
+    def update_trade_calendar(end_date: Optional[str] = None) -> None:
         end_date = end_date or datetime.datetime.now().strftime("%Y%m%d")
 
         session = Session()
@@ -97,7 +97,7 @@ class TradeCalendar(Base):
             return future_trade_days[-1][0]  # 返回第 delta 个交易日
 
     @staticmethod
-    def get_previous_trade_date(trade_date, delta=1, exchange='SSE'):
+    def get_previous_trade_date(trade_date: str, delta: int = 1, exchange: str = 'SSE') -> str:
         """
         获取指定交易日之前的第 delta 个交易日。
 
@@ -124,7 +124,7 @@ class TradeCalendar(Base):
             return results[-1][0]  # results 是 [(cal_date,)] 格式，取第一个值
 
     @staticmethod
-    def is_trade_day(cal_date, exchange='SSE'):
+    def is_trade_day(cal_date: str, exchange: str = 'SSE') -> Optional[bool]:
         session = Session()
         try:
             result = session.query(TradeCalendar.is_open).filter(
@@ -139,7 +139,7 @@ class TradeCalendar(Base):
             session.close()
 
     @staticmethod
-    def get_trade_dates(start_date, end_date, exchange='SSE'):
+    def get_trade_dates(start_date: str, end_date: str, exchange: str = 'SSE') -> List[str]:
         if not TradeCalendar.validate_date_range(start_date, end_date):
             return []
         
@@ -155,7 +155,7 @@ class TradeCalendar(Base):
             session.close()
 
     @staticmethod
-    def iterate_trade_days(start_date, end_date, closure, reverse=False):
+    def iterate_trade_days(start_date: str, end_date: str, closure: Callable[[str], None], reverse: bool = False) -> None:
         if not TradeCalendar.validate_date_range(start_date, end_date):
             return
         trade_days = TradeCalendar.get_trade_dates(start_date, end_date)
@@ -178,7 +178,7 @@ class TradeCalendar(Base):
         return len(trade_days) - 1
 
     @staticmethod
-    def get_recent_trade_date(exchange='SSE'):
+    def get_recent_trade_date(exchange: str = 'SSE') -> str:
         session = Session()
         try:
             result = session.query(TradeCalendar.cal_date).filter(

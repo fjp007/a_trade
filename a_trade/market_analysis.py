@@ -4,12 +4,28 @@
 import logging
 import datetime
 import sys
+from typing import Dict, List, Optional, TypedDict
 from sqlalchemy import Column, String, Integer, Float, func, case
 from a_trade.db_base import Session, Base
 from a_trade.stocks_daily_data import get_stocks_daily_data, StockDailyData
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.limit_up_data_tushare import LimitUpTushare, LimitDataSource
 import a_trade.settings
+
+class MarketDailyDataDict(TypedDict):
+    trade_date: str
+    up_num: int
+    down_num: int
+    limit_up_num: int
+    non_one_word_limit_up_num: int
+    limit_up_amount: float
+    limit_down_num: int
+    blow_up_rate: float
+    prev_limit_up_high_open_rate: float
+    prev_limit_up_success_rate: float
+    physical_board_next_day_limit_up_rate: float
+    sentiment_index: int
+    highest_continuous_up_count: int
 
 # 定义数据库模型
 class MarketDailyData(Base):
@@ -28,7 +44,7 @@ class MarketDailyData(Base):
     limit_up_amount = Column(Float)
     highest_continuous_up_count = Column(Integer)
 
-def _calculate_market_daily_data(trade_date):
+def _calculate_market_daily_data(trade_date: str) -> Optional[MarketDailyDataDict]:
     session = Session()
     try:
         logging.info(f"正在分析 {trade_date} 市场情绪")
@@ -148,21 +164,22 @@ def _calculate_market_daily_data(trade_date):
     finally:
         session.close()
 
-def update_market_daily_data_during(start_date, end_date):
+def update_market_daily_data_during(start_date: str, end_date: str) -> None:
     logging.info(f"正在分析 从 {start_date} 到 {end_date} 的市场情绪")
     if not  TradeCalendar.validate_date_range(start_date, end_date):
         return
     
-    market_daily_data_list = []
+    market_daily_data_list: List[MarketDailyDataDict] = []
     trade_days = TradeCalendar.get_trade_dates(start_date, end_date)
     for current_date in trade_days:
         market_daily_data = _calculate_market_daily_data(current_date)
-        market_daily_data_list.append(market_daily_data)
+        if market_daily_data:
+            market_daily_data_list.append(market_daily_data)
 
     write_market_daily_data_to_db_batch(market_daily_data_list)
     logging.info(f"市场情绪数据从 {start_date} 到 {end_date} 已写入数据库")
 
-def write_market_daily_data_to_db_batch(market_daily_data_list):
+def write_market_daily_data_to_db_batch(market_daily_data_list: List[MarketDailyDataDict]) -> None:
     if len(market_daily_data_list) <= 0:
         return
 

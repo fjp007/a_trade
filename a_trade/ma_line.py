@@ -1,5 +1,6 @@
 # coding: utf-8
 
+from typing import List, Optional
 from a_trade.stocks_daily_data import StockDailyData
 from a_trade.db_base import Session
 import pandas as pd
@@ -7,7 +8,8 @@ from a_trade.trade_utils import MA
 import logging
 import a_trade.settings
 
-def get_ma_line(ts_code='', start_date=None, end_date=None, ma=[]):
+def get_ma_line(ts_code: str = '', start_date: Optional[str] = None, 
+                end_date: Optional[str] = None, ma: List[int] = []) -> Optional[pd.DataFrame]:
     """
     从数据库读取数据并计算均线
     Parameters:
@@ -16,7 +18,7 @@ def get_ma_line(ts_code='', start_date=None, end_date=None, ma=[]):
     start_date: 开始日期  YYYYMMDD
     end_date: 结束日期 YYYYMMDD
     ma: 均线, 支持自定义均线频度，如：ma5/ma10/ma20/ma60/maN
-    s
+    
     Return
     ----------
     DataFrame

@@ -17,7 +17,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from a_trade.media_data_spider import WechatArticleInfo
+from a_trade.media_wechat import WechatArticleInfo
 from a_trade.settings import get_project_path
 from a_trade.db_base import Session, Base, engine
 from a_trade.trade_calendar import TradeCalendar

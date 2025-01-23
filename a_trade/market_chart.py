@@ -2,6 +2,8 @@
 import matplotlib.pyplot as plt
 import os
 import sys
+from typing import List, Optional, Tuple
+from pathlib import Path
 from a_trade.db_base import Session
 from a_trade.market_analysis import MarketDailyData
 from a_trade.trade_calendar import TradeCalendar
@@ -10,7 +12,7 @@ import logging
 from a_trade.settings import get_chinese_font, get_project_path
 
 # 获取市场分析数据
-def _fetch_market_daily_data(start_date, end_date):
+def _fetch_market_daily_data(start_date: str, end_date: str) -> List[MarketDailyData]:
     session = Session()
     try:
         records = session.query(MarketDailyData).filter(
@@ -21,14 +23,14 @@ def _fetch_market_daily_data(start_date, end_date):
         session.close()
 
 # 绘制市场指标图表
-def plot_market_indicators(start_date, end_date):
+def plot_market_indicators(start_date: str, end_date: str) -> Optional[Path]:
     if not TradeCalendar.validate_date_range(start_date, end_date):
-        return
+        return None
 
     data = _fetch_market_daily_data(start_date, end_date)
     if not data:
         logging.warning(f"{start_date} - {end_date} 没有找到市场分析数据")
-        return
+        return None
 
     dates = [record.trade_date for record in data]
 
@@ -108,12 +110,12 @@ def plot_market_indicators(start_date, end_date):
     return file_path
 
 # 绘制最近一个月的市场指标图表
-def plot_market_indicators_recent_month(end_date):
+def plot_market_indicators_recent_month(end_date: str) -> Optional[Path]:
     # 绘制最近一个月数据
     start_date = (datetime.datetime.strptime(end_date, "%Y%m%d") - datetime.timedelta(days=30)).strftime("%Y%m%d")
     return plot_market_indicators(start_date, end_date)
 
-def main():
+def main() -> None:
     if len(sys.argv) != 2:
         print("用法: python market_chart.py <结束日期(yyyyMMdd)>")
         sys.exit(1)

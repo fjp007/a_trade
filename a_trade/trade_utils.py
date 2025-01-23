@@ -2,8 +2,9 @@
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
+from typing import Optional, Union, List, Dict, Any
 
-def is_10cm_stock(stock_code):
+def is_10cm_stock(stock_code: str) -> bool:
     # 判断是否为深圳创业板股票，涨跌幅20%
     if stock_code.startswith("3"):
         return False
@@ -16,7 +17,7 @@ def is_10cm_stock(stock_code):
     # 其他情况，默认不是涨跌幅10%的股票
     return False
 
-def code_with_exchange(stock_code):
+def code_with_exchange(stock_code: str) -> str:
     if stock_code.startswith("4"):
         return f"{stock_code}.BJ"
     elif stock_code.startswith("0") or stock_code.startswith("3"):
@@ -27,7 +28,7 @@ def code_with_exchange(stock_code):
         logging.error(f"未知交易所,代码{stock_code}")
         return "未知交易所"
     
-def timestamp_in_millis(date=None):
+def timestamp_in_millis(date: Optional[Union[str, pd.Timestamp]] = None) -> int:
     """
     获取指定日期的时间戳（毫秒级）。如果不传入日期，则返回当前时间的时间戳。
     
@@ -46,18 +47,18 @@ def timestamp_in_millis(date=None):
         
     return int(timestamp.timestamp() * 1000)
 
-def format_time_string(time_str):
+def format_time_string(time_str: str) -> str:
     # 将数字字符串转换为时间格式
     if len(time_str) == 5:
         time_str = '0' + time_str
     formatted_time = f"{time_str[:2]}:{time_str[2:4]}:{time_str[4:]}"
     return formatted_time
 
-def format_amount_string(amount):
+def format_amount_string(amount: float) -> str:
     # 将金额格式化为"xx亿""
     return f"{amount / 1e8:.2f}亿"
 
-def format_limit_up_count_string(limit_up_count_str):
+def format_limit_up_count_string(limit_up_count_str: str) -> str:
     # 将金额格式化为"xx亿""
     array = limit_up_count_str.split('/')
     if len(array) == 2:
@@ -65,31 +66,31 @@ def format_limit_up_count_string(limit_up_count_str):
     else:
         return "格式化异常"
 
-def MA(DF, N):
+def MA(DF: pd.Series, N: int) -> pd.Series:
     return pd.Series.rolling(DF, N).mean()
 
-def concepts_equal(array1, array2):
+def concepts_equal(array1: List[str], array2: List[str]) -> bool:
     if not array1 and not array2:
         return False
     if len(array1) != len(array2):
         return False
     return sorted(array1) == sorted(array2)
 
-def strip_list(origin_list):
+def strip_list(origin_list: List[Any]) -> List[Any]:
     return list(dict.fromkeys(origin_list))
 
-def strip_code_suffix(stock_code):
+def strip_code_suffix(stock_code: str) -> str:
     if "." in stock_code:
         return stock_code.split(".")[0]
     return stock_code
 
-def strip_stock_name(stock_name):
+def strip_stock_name(stock_name: Optional[str]) -> Optional[str]:
     if not stock_name:
         return stock_name
     return stock_name.replace(" ", "")
 
-def time_difference_less_than(first_time, last_time, seconds=60):
-    if first_time == None or last_time == None:
+def time_difference_less_than(first_time: Optional[str], last_time: Optional[str], seconds: int = 60) -> bool:
+    if first_time is None or last_time is None:
         return False
     # 设定时间格式
     time_format = '%H%M%S'
