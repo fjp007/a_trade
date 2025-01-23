@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "a-trade"
-version = "1.5.17"
+version = "1.5.18"
 description = ""
 authors = ["fengjianpeng <miracle1627@163.com>"]
 readme = "README.md"
@@ -30,6 +30,7 @@ json-repair = "0.30.0"
 alembic = "^1.14.0"
 pydantic = "^2.10.5"
 pg8000 = "^1.31.2"
+wechatarticles = {path = "../wechat_articles_spider"}
 
 
 [build-system]
