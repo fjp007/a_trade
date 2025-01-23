@@ -1,52 +1,48 @@
-# llm_openai_caller.py
 import os
-import httpx
 import logging
-import base64
 import a_trade.settings
+import base64
+import json
+import re
 from openai import OpenAI
 from a_trade.llm_caller_base import LLMCaller
 
-class OpenAICaller(LLMCaller):
+class TZTAICaller(LLMCaller):
     def __init__(self):
-        self.visual_model = "gpt-4-turbo"
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        proxy_http_url = os.getenv('PROXY_HTTP')
-        
-        if proxy_http_url:
-            self.client = OpenAI(
-                api_key=self.api_key,
-                http_client=httpx.Client(
-                    proxy=proxy_http_url,
-                    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-                    verify=False
-                )
-            )
-        else:
-            self.client = OpenAI(
-                api_key=self.api_key
-            )
+        self.visual_model = "deepseek-vl2"  # 替换为您的模型ID    
+        self.client = OpenAI(
+            api_key=os.getenv("302AI_API_KEY"),
+            base_url="https://api.302.ai/v1",
+        )
+
+    def extract_json_from_marked_string(self, input_string):
+        """
+        从输入字符串中提取被 ```json 和 ``` 包围的 JSON 数据。
+
+        :param input_string: 包含 JSON 数据的字符串
+        :return: 解析后的 JSON 对象列表，如果未找到则返回空列表
+        """
+        # 正则表达式匹配 ```json 和 ``` 之间的内容
+        pattern = re.compile(r'```json\s*([\s\S]*?)\s*```', re.MULTILINE)
+
+        # 查找所有匹配的 JSON 字符串
+        matches = pattern.findall(input_string)
+
+        valid_json_strings = []
+
+        for match in matches:
+            json_str = match.strip()
+            try:
+                # 尝试解析 JSON 字符串以验证其有效性
+                json.loads(json_str)
+                valid_json_strings.append(json_str)
+            except json.JSONDecodeError as e:
+                print(f"无效的 JSON 字符串，跳过。错误: {e}")
+        print(valid_json_strings)
+        return valid_json_strings[0]
+
     def call_text_model_api(self, system_prompt: str, user_prompt: str = None, temperature: float = 0, max_tokens: int = 2000) -> str:
-        try:
-             # 初始化消息列表，包含系统提示
-            messages = [
-                {"role": "system", "content": system_prompt}
-            ]
-            
-            # 如果用户提示不为空，则添加到消息列表中
-            if user_prompt:
-                messages.append({"role": "user", "content": user_prompt})
-            
-            response = self.client.chat.completions.create(
-                messages=messages,
-                model="gpt-4o",
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logging.error(f"OpenAI API调用失败: {e}")
-            raise
+        pass
 
     def call_visual_model_api(
         self,
@@ -90,6 +86,21 @@ class OpenAICaller(LLMCaller):
         if not base64_image:
             logging.error("图片编码失败。")
             return ""
+
+        # 获取图片的像素数量
+        # try:
+        #     with Image.open(image_path) as img:
+        #         width, height = img.size
+        #         pixel_count = width * height
+        # except Exception as e:
+        #     logging.error(f"无法获取图片尺寸: {e}")
+        #     return ""
+
+        # 根据像素数量定义 max_pixels
+        # 每28x28像素对应一个Token
+        # 通义千问OCR模型的最大输入按Token数计算，每Token对应28x28像素
+        # max_pixels = pixel_count，限制在28*28*30000以内
+        # calculated_max_pixels = min(pixel_count, 28 * 28 * 30000)
         
         # 构建 Base64 编码的图片URL
         image_url = f"data:image/{os.path.splitext(image_path)[1]};base64,{base64_image}"
@@ -103,7 +114,7 @@ class OpenAICaller(LLMCaller):
                         "type": "image_url",
                         "image_url": {
                             "url": image_url
-                        }
+                        },
                     },
                 ],
             }
@@ -114,15 +125,13 @@ class OpenAICaller(LLMCaller):
             response = self.client.chat.completions.create(
                 model=self.visual_model,
                 messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"}
+                temperature=temperature
             )
             output = response.choices[0].message.content.strip()
             logging.info(f"响应: {output}")
-            return output
+            return self.extract_json_from_marked_string(output)
         except Exception as e:
-            logging.error(f"Kimi 多模态API调用失败: {e}")
+            logging.error(f"302 多模态API调用失败: {e}")
             # 如果有错误响应内容，打印出来
             if hasattr(e, 'response') and e.response is not None:
                 try:

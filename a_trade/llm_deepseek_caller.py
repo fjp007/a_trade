@@ -6,9 +6,8 @@ from a_trade.llm_caller_base import LLMCaller
 
 class DeepseekCaller(LLMCaller):
     def __init__(self):
-        self.api_key = os.getenv("DEEPSEEK_API_KEY")
         
-        client = OpenAI(
+        self.client = OpenAI(
             api_key=os.getenv("DEEPSEEK_API_KEY"),
             base_url="https://api.deepseek.com/beta",
         )
@@ -36,7 +35,7 @@ class DeepseekCaller(LLMCaller):
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            logging.error(f"OpenAI API调用失败: {e}")
+            logging.error(f"DeepSeek API调用失败: {e}")
             raise
 
     def call_visual_model_api(

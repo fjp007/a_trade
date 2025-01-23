@@ -108,7 +108,7 @@ class ALICaller(LLMCaller):
             logging.info(f"响应: {output}")
             return output
         except Exception as e:
-            logging.error(f"Kimi 多模态API调用失败: {e}")
+            logging.error(f"通义千问 多模态API调用失败: {e}")
             # 如果有错误响应内容，打印出来
             if hasattr(e, 'response') and e.response is not None:
                 try:

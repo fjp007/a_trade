@@ -6,7 +6,7 @@ import a_trade.settings
 subscription_key = os.getenv('BING_SEARCH_V7_SUBSCRIPTION_KEY')
 endpoint = os.getenv('BING_SEARCH_V7_ENDPOINT') + "/v7.0/search"
 
-def search_word_from_bing(word):
+def search_word_from_bing(word: str) -> dict[str, list[str]]:
     """
     使用 Bing 搜索并返回前三条结果的 'name' 和 'snippet'。
     

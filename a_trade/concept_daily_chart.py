@@ -12,7 +12,7 @@ import logging
 from a_trade.trade_utils import format_time_string, format_amount_string, format_limit_up_count_string
 from a_trade.market_chart import plot_market_indicators_recent_month
 
-def plot_limit_up_concepts_chart(trade_date):
+def plot_limit_up_concepts_chart(trade_date: str) -> str:
     concept_to_stock_list = {}
     concept_to_data = {}
 
@@ -190,7 +190,6 @@ def plot_limit_up_concepts_chart(trade_date):
     plt.savefig(output_path, bbox_inches='tight')
     plt.close()
     return output_path
-
 
 if __name__ == "__main__":
     import sys

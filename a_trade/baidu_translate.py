@@ -9,7 +9,7 @@ import logging
 import a_trade.settings
 import os
 
-def translate_to_chinese(word):
+def translate_to_chinese(word: str) -> str:
     logging.info(f'百度翻译词语:{word}')
     # 使用百度翻译 API 实现翻译
     url = "https://fanyi-api.baidu.com/api/trans/vip/translate"

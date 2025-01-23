@@ -763,7 +763,12 @@ class Strategy(ABC):
                 raise
 
     def local_simulation(self, start_date: str, end_date: str) -> None:
+        import time
+        start_time = time.time()
         TradeCalendar.iterate_trade_days(start_date, end_date, self.strategy_simulation_daily_work)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        logging.info(f"{start_date} - {end_date}策略 {self.strategy_name} 执行完成，耗时: {elapsed_time:.2f} 秒")
 
     @abstractmethod
     def analyze_performance_datas(self, records: List[Tuple[TradeRecord,StrategyObservationEntry,ObservationVariable]]) -> Dict[str, Any]:

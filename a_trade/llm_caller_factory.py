@@ -2,6 +2,7 @@ from a_trade.llm_caller_base import LLMCaller
 from a_trade.llm_openai_caller import OpenAICaller
 from a_trade.llm_doubao_caller import DoubaoCaller
 from a_trade.llm_deepseek_caller import DeepseekCaller
+from a_trade.llm_302ai_caller import TZTAICaller
 from a_trade.llm_kimi_caller import KimiCaller
 from a_trade.llm_ali_caller import ALICaller
 import logging
@@ -26,6 +27,8 @@ class LLMCallerFactory:
             return KimiCaller()
         elif model_type.lower() == 'ali':
             return ALICaller()
+        elif model_type.lower() == '302ai':
+            return TZTAICaller()
         else:
             logging.error(f"不支持的模型类型: {model_type}")
             raise ValueError(f"Unsupported model type: {model_type}")
