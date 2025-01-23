@@ -184,19 +184,19 @@ class LimitDataSource():
             ).order_by(StockDailyData.trade_date.desc()).limit(days_ago + 1).all()
         # 检查数据完整性
         if len(daily_data) < days_ago:
-            logging.error(f"股票 {stock_code} 在 {self.trade_date} 之前的数据不足 {days_ago} 天，无法计算涨幅")
+            logging.error(f"股票 {limit_data.stock_name} 在 {self.trade_date} 之前的数据不足 {days_ago} 天，无法计算涨幅")
             return 0.0
         
         # 检查是否包含跌停数据
-        for day in daily_data:
-            if day.pct_chg and day.pct_chg <= -9.5:
-                logging.info(f"股票 {stock_code} 包含跌停数据，累计涨幅视为 0.0")
-                self.pct_chg_cache[stock_code] = 0.0
-                return 0.0
+        # for day in daily_data:
+        #     if day.pct_chg and day.pct_chg <= -9.8:
+        #         logging.info(f"股票 {stock_code} 包含跌停数据，累计涨幅视为 0.0")
+        #         self.pct_chg_cache[stock_code] = 0.0
+        #         return 0.0
 
         if len(daily_data) == days_ago:
             # 新股情况：取第一天开盘价作为起始值
-            logging.info(f"股票 {stock_code} 是新股，累计涨幅视为 0.0")
+            logging.info(f"股票 {stock_code} {limit_data.stock_name} 是新股，累计涨幅视为 0.0")
             self.pct_chg_cache[stock_code] = 0.0
             return 0.0
             # start_data = daily_data[-1]

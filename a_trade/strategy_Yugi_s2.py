@@ -36,6 +36,7 @@ class ObservedStockS2Model(ObservationVarMode):
     next_high: Optional[float] = Field(0, description="第二天最高价")
     next_close: Optional[float] = Field(0, description="第二天收盘价")
     is_limit_up: Optional[bool] = Field(False, description="第二天涨停")
+    next_open_rate: Optional[float] = Field(0, description="第二天开盘幅度")
 
 class StrategyTaskYugiS2(StrategyTask):
     """
@@ -55,7 +56,7 @@ class StrategyTaskYugiS2(StrategyTask):
         limit_data_source = LimitDataSource(self.trade_date)
         for stock_code, stock_limit_info in limit_data_source.limit_failed_map.items():
             daily_data = limit_data_source.get_daily_data(stock_code)
-            if daily_data.open == daily_data.high and (daily_data.high/daily_data.pre_close - 1)*100 > strategy_params.limit_up_pch and daily_data.close < daily_data.pre_close:
+            if daily_data.open == daily_data.high and (daily_data.high/daily_data.pre_close - 1)*100 > strategy_params.limit_up_pch and daily_data.close < daily_data.pre_close*1.01:
                 first_open_time = None
                 minutes_data = get_minute_data(stock_code, self.trade_date)
                 for minute_data in minutes_data:
@@ -110,6 +111,7 @@ class StrategyTaskYugiS2(StrategyTask):
                     var.variables['is_limit_up'] = is_limit_up
                     var.variables['next_high'] = daily_data.high
                     var.variables['next_close'] = daily_data.close
+                    var.variables['next_open_rate'] = (daily_data.open/daily_data.pre_close - 1)*100
                     flag_modified(var, "variables")
                     session.add(var)
             try:

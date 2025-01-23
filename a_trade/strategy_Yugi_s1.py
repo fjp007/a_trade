@@ -83,7 +83,7 @@ class StrategyParamsYugiS1(StrategyParams):
     
     # 弱板股票第一天振幅上限，影响买入策略
     first_date_amplitude: float = Field(
-        15.0, 
+        17.0, 
         description="弱板股票第一天振幅上限，影响买入策略"
     )
     
@@ -351,12 +351,12 @@ class StrategyTaskYugiS1(StrategyTask):
                     logging.info(f"{self.trade_date} {stock_name} {trade_time} 触发买入线 {observer_buy_info.buy_threshold} 实际买入价格 {buy_price}")
 
                     # 停止监听同板块其他股票
-                    for other_stock_code, (other_stock, _) in self.observe_stocks_to_buy.items():
-                        other_var_mode = self.buy_var_model_map[other_stock_code]
-                        if other_var_mode.concept_name == observed_var_mode.concept_name and other_stock_code != stock_code:
-                            buy_info_record_map[other_stock_code].stop_buy = True
-                            logging.info(f"{self.trade_date} {other_stock.stock_name} {trade_time} 停止监听原因: 已买入同板块股票")
-                            self.stop_subscribe_buy_stock(other_stock_code,  SubscribeStopType.STOPTYPE_CANCEL)
+                    # for other_stock_code, (other_stock, _) in self.observe_stocks_to_buy.items():
+                    #     other_var_mode = self.buy_var_model_map[other_stock_code]
+                    #     if other_var_mode.concept_name == observed_var_mode.concept_name and other_stock_code != stock_code:
+                    #         buy_info_record_map[other_stock_code].stop_buy = True
+                    #         logging.info(f"{self.trade_date} {other_stock.stock_name} {trade_time} 停止监听原因: 已买入同板块股票")
+                    #         self.stop_subscribe_buy_stock(other_stock_code,  SubscribeStopType.STOPTYPE_CANCEL)
 
         if trade_time > "09:40":
             logging.info(f"{trade_time} 超出买入策略执行时间范围，停止监听 {stock_name}")
@@ -539,15 +539,14 @@ class StrategyTaskYugiS1(StrategyTask):
                 # weak_stocks = first_date_concept_to_stocks[attribution.concept_name]["weak_stocks"]
                 t_stocks = first_date_concept_to_stocks[attribution.concept_name]["t_stocks"]
                 stock_is_t_limit = first_date_daily_data.is_t_limit()
-                logging.info(f"{first_date_daily_data.ts_code} T字板判定{stock_is_t_limit}")
+                logging.info(f"{self.trade_date} {limit_data.stock_name} T字板判定{stock_is_t_limit}")
                 
-
                 if stock_is_t_limit:
                     amplitude_limit_condition = ((first_date_daily_data.high - first_date_daily_data.low)*100/first_date_daily_data.pre_close < strategy_params.first_date_amplitude)
                     if limit_data.up_stat:
-                        boards, days_ago = map(int, limit_data.up_stat.split('/'))
+                        _, days_ago = map(int, limit_data.up_stat.split('/'))
                     previous_daily_source = StockDailyDataSource(first_date_daily_data.ts_code, trade_date, strategy_params.continuous_one_limit_count)
-                    logging.info(f"{first_date_daily_data.ts_code} 振幅判定{amplitude_limit_condition}")
+                    logging.info(f"{limit_data.stock_name} 振幅判定{amplitude_limit_condition}")
                     if amplitude_limit_condition and not previous_daily_source.is_one_limit():
                         if stock_is_t_limit:
                             t_stocks.append(limit_data)
@@ -619,7 +618,7 @@ class StrategyTaskYugiS1(StrategyTask):
 
                 if second_stock and (second_stock.continuous_limit_up_count == first_stock.continuous_limit_up_count or second_stock.continuous_limit_up_count < strategy_params.observe_min_limit_count):
                     dragon_stocks.remove(second_stock)
-
+                
                 recent_highest_stock.recent_high = limit_data_source.get_pct_chg(recent_highest_stock.stock_code)
                 boards, days_ago = map(int, recent_highest_stock.up_stat.split('/'))
                 recent_highest_stock.avg_recent_high = round(recent_highest_stock.recent_high / days_ago, 2) if days_ago > 0 else recent_highest_stock.recent_high
@@ -629,7 +628,7 @@ class StrategyTaskYugiS1(StrategyTask):
                     if (recent_highest_stock != first_stock and recent_highest_stock != second_stock) or recent_highest_stock.continuous_limit_up_count < strategy_params.observe_min_limit_count:
                         recent_highest_stock.concept_position = "近期涨幅股"
                         dragon_stocks.add(recent_highest_stock)
-
+                print(f"location: {concept_name} {dragon_stocks}")
 
                 if len(t_stocks) < 1:
                     logging.info(f"移除板块 {concept_name}, 因T字板数量不足: {len(t_stocks)}")
@@ -650,7 +649,7 @@ class StrategyTaskYugiS1(StrategyTask):
 
                 if not concept_observed_pool:
                     continue
-                
+                print(f"location: {concept_name} {concept_observed_pool}")
                 for stock in concept_observed_pool:
                     stock_limit_info: Optional[LimitUpTushare] = stock
                     daily_position=None
