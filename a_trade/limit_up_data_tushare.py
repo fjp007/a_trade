@@ -8,7 +8,7 @@ import time
 import requests
 import pywencai
 import pandas as pd
-from typing import Optional
+from typing import Optional, Dict
 import sys
 
 from a_trade.settings import _get_tushare
@@ -135,12 +135,24 @@ class LimitDataSource():
                 StockDailyData.trade_date == self.trade_date,
                 StockDailyData.ts_code.in_(stock_codes)
             ).all()
-            self.daily_data_cache = {
+            # 声明daily_data_cache为字典类型
+            self.daily_data_cache: Dict[str, StockDailyData] = {
                 data.ts_code: data
                 for data in datas
             }
 
-    def get_daily_data(self, stock_code):
+    def get_daily_data(self, stock_code: str) -> StockDailyData:
+        """获取指定股票的日线数据
+        
+        Args:
+            stock_code (str): 股票代码
+            
+        Returns:
+            StockDailyData: 股票日线数据对象
+            
+        Raises:
+            AssertionError: 如果找不到对应的日线数据
+        """
         if stock_code in self.daily_data_cache:
             return self.daily_data_cache[stock_code]
         

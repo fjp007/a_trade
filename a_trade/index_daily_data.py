@@ -21,9 +21,15 @@ class IndexDailyData(Base):
     pct_chg = Column(Float)  # 涨跌幅
     vol = Column(Float)  # 成交量
     amount = Column(Float)  # 成交金额
-
 # 获取指数日线
-def update_index_data(ts_code, start_date, end_date):
+def update_index_data(ts_code: str, start_date: str, end_date: str) -> None:
+    """更新指定指数在指定日期范围内的日线数据
+    
+    Args:
+        ts_code (str): 指数代码
+        start_date (str): 开始日期，格式为YYYYMMDD
+        end_date (str): 结束日期，格式为YYYYMMDD
+    """
     logging.info(f"正在获取从 {start_date} - {end_date} 的指数 {ts_code} 日线")
     index_data = _get_tushare().pro_api().index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
     logging.debug(index_data)
@@ -52,7 +58,12 @@ def update_index_data(ts_code, start_date, end_date):
     finally:
         session.close()
 
-def update_index_data_until(end_date: str):
+def update_index_data_until(end_date: str) -> None:
+    """更新所有主要指数数据直到指定日期
+    
+    Args:
+        end_date (str): 结束日期，格式为YYYYMMDD
+    """
     code_map = {
         "399006.SZ": "创业板指数",
         "000688.SH": "科创50",

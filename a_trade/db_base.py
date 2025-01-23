@@ -4,12 +4,13 @@
 import os
 from a_trade.settings import get_project_path
 import datetime
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, text, Float, TEXT
-from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session
+from sqlalchemy import create_engine, MetaData, Table, text, Engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 import logging
 import traceback
+from typing import List
 from contextlib import contextmanager
 import a_trade.settings
 
@@ -44,7 +45,7 @@ def initialize_sync_db():
     Base.metadata.create_all(engine)
     return engine
 
-def add_column_for_table(table_name, column_name, column_type, default_value=None):
+def add_column_for_table(table_name: str, column_name: str, column_type: type, default_value: any = None) -> None:
     """为已有的表添加列，若列已存在则跳过"""
     metadata = MetaData()
     table = Table(table_name, metadata, autoload_with=engine)
@@ -65,7 +66,7 @@ def add_column_for_table(table_name, column_name, column_type, default_value=Non
     else:
         print(f"Column '{column_name}' already exists in '{table_name}'.")
 
-def get_recent_trade_date_in_table(table_name, field_name='trade_date', default_start_date='20200101'):
+def get_recent_trade_date_in_table(table_name: str, field_name: str = 'trade_date', default_start_date: str = '20200101') -> str:
     """获取数据库表中的最近交易日期"""
     session = Session()
     try:
@@ -82,7 +83,7 @@ def get_recent_trade_date_in_table(table_name, field_name='trade_date', default_
     finally:
         session.close()
 
-def rename_table(old_table_name, new_table_name):
+def rename_table(old_table_name: str, new_table_name: str) -> None:
     """重命名数据库中的数据表"""
     alter_sql = text(f"ALTER TABLE {old_table_name} RENAME TO {new_table_name}")
     try:
@@ -92,7 +93,7 @@ def rename_table(old_table_name, new_table_name):
     except SQLAlchemyError as e:
         print(f"Error renaming table: {e}")
 
-def rename_column(table_name, old_column_name, new_column_name):
+def rename_column(table_name: str, old_column_name: str, new_column_name: str) -> None:
     """重命名指定表的列名为新列名"""
     alter_sql = text(f"ALTER TABLE {table_name} RENAME COLUMN {old_column_name} TO {new_column_name}")
     try:
@@ -102,7 +103,7 @@ def rename_column(table_name, old_column_name, new_column_name):
     except SQLAlchemyError as e:
         print(f"Error renaming column: {e}")
 
-def copy_table(source_engine, target_engine, table_name, primary_key_columns):
+def copy_table(source_engine: Engine, target_engine: Engine, table_name: str, primary_key_columns: List[str]) -> None:
     """
     将指定表的数据从源数据库复制到目标数据库，使用UPSERT处理主键冲突。
 
@@ -171,7 +172,7 @@ def copy_table(source_engine, target_engine, table_name, primary_key_columns):
         source_session.close()
         target_session.close()
 
-def merge_db_data_from_base_to_sync():
+def merge_db_data_from_base_to_sync() -> None:
     tables_to_sync = {
         'limit_reason_to_concept': ['limit_reason'],
     }
@@ -185,7 +186,7 @@ def merge_db_data_from_base_to_sync():
         )
     logging.info('数据已同步至云端增量数据库')
 
-def merge_db_data_from_sync_to_base():
+def merge_db_data_from_sync_to_base() -> None:
     tables_to_sync = {
         'limit_reason_to_concept': ['limit_reason'],
     }

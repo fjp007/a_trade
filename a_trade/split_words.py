@@ -4,7 +4,7 @@ from a_trade.db_base import Session
 import logging
 from a_trade.settings import get_project_path
 
-def get_frequecy_dict_path():
+def get_frequecy_dict_path() -> str:
     project_path = get_project_path()
     frequency_dict_path = project_path / 'concept_slip_words_frequecy.txt'
     return frequency_dict_path

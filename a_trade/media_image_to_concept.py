@@ -25,7 +25,7 @@ class LimitDailyAttributionMedia(Base):
 Base.metadata.create_all(engine)
 
 def translate_image_to_concept_for_day(trade_date):
-    # translate_image_to_json_for_day(trade_date)
+    translate_image_to_json_for_day(trade_date)
     traslate_json_to_db(trade_date)
 
 def translate_image_to_json_for_day(trade_date):

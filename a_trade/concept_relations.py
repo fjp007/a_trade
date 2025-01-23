@@ -1,5 +1,6 @@
 # coding: utf-8
 import json
+from typing import List, Set, Optional, Dict
 from a_trade.settings import get_project_path
 
 class ConceptRelations:
@@ -15,9 +16,10 @@ class ConceptRelations:
         concept_file_path = get_project_path() / 'concept_category.json'
         self._load_concept_infos(concept_file_path)
 
-    def _load_concept_infos(self, concept_file_path):
+    def _load_concept_infos(self, concept_file_path: str) -> None:
         """
         加载板块数据并构建链条和反向索引
+        :param concept_file_path: 板块关系数据文件路径
         """
         # 加载父子关系数据
         with open(concept_file_path, 'r', encoding='utf-8') as file:
@@ -31,9 +33,12 @@ class ConceptRelations:
         # 构建反向索引
         self.concept_to_descendants = self._build_descendants()
 
-    def _build_full_chain(self, concept_name, visited=None):
+    def _build_full_chain(self, concept_name: str, visited: Optional[Set[str]] = None) -> List[str]:
         """
         优化：递归构建板块的完整父辈关系链条，确保按从子到父依次展开父级板块
+        :param concept_name: 当前板块名称
+        :param visited: 已访问的板块集合
+        :return: 该板块的完整父辈链条
         """
         if visited is None:
             visited = set()
@@ -65,9 +70,10 @@ class ConceptRelations:
         # 去重并保持顺序
         return list(dict.fromkeys(chain))
 
-    def _build_descendants(self):
+    def _build_descendants(self) -> Dict[str, Set[str]]:
         """
         构建每个板块的所有子板块（直接和间接）
+        :return: 返回一个字典，key为板块名称，value为该板块的所有子板块集合
         """
         # 初始化父板块到子板块的映射
         parent_to_children = {}
@@ -84,9 +90,11 @@ class ConceptRelations:
         all_concepts = set(self.concept_to_category.keys()).union(set(parent_to_children.keys()))
         descendants = {concept: set() for concept in all_concepts}
 
-        def collect_descendants(parent):
+        def collect_descendants(parent: str) -> Set[str]:
             """
             递归收集某板块的所有子板块
+            :param parent: 父板块名称
+            :return: 该板块的所有子板块集合
             """
             if parent not in parent_to_children:
                 return set()
@@ -107,9 +115,11 @@ class ConceptRelations:
 
         return descendants
 
-    def get_related_concepts(self, concept_name):
+    def get_related_concepts(self, concept_name: str) -> List[str]:
         """
         获取目标板块的相关板块，包括父板块和子板块
+        :param concept_name: 目标板块名称
+        :return: 相关板块名称列表
         """
         if concept_name not in self.concept_to_chains and concept_name not in self.concept_to_descendants:
             return []
@@ -124,7 +134,7 @@ class ConceptRelations:
         # 合并父板块和子板块
         return list(set(related_from_chain + related_from_descendants))
 
-    def is_parent_concept(self, parent_concept, child_concept):
+    def is_parent_concept(self, parent_concept: str, child_concept: str) -> bool:
         """
         判断 parent_concept 是否是 child_concept 的父辈关系（包括父亲和祖先）
         :param parent_concept: 待判断的父辈板块名称

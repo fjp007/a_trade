@@ -25,7 +25,7 @@ class StockBase(Base):
 
 
 #  获取新股信息
-def update_new_stocks(recent_trade_date):
+def update_new_stocks(recent_trade_date: str):
         # 获取最近一个交易日
     # recent_trade_date = TradeCalendar.get_recent_trade_date()
     logging.info(f"获取 {recent_trade_date} 的新股信息")

@@ -6,7 +6,9 @@ from a_trade.db_base import Session, Base, engine
 from a_trade.trade_calendar import TradeCalendar
 from a_trade.settings import _get_tushare
 import pandas as pd
+from typing import Optional
 import json
+from typing import List
 
 class ConceptInfo(Base):
     __tablename__ = 'concept_info'
@@ -61,24 +63,27 @@ class ConceptManager:
         self.concept_info_cache = {}
         self._load_concept_infos()
 
-    def _load_concept_infos(self):
-        # 加载板块信息至内存缓存
+    def _load_concept_infos(self) -> None:
+        """加载板块信息至内存缓存"""
         result = self._get_all_available_subject_concept()
         for record in result:
             self.concept_info_cache[record.name] = record
 
-    def get_code_from_concept_name(self, name):
+    def get_code_from_concept_name(self, name: str) -> Optional[str]:
+        """根据概念名称获取概念代码"""
         if name not in self.concept_info_cache:
             return None
         concept = self.concept_info_cache[name]
         return concept.concept_code
 
-    def _get_all_available_subject_concept(self):
+    def _get_all_available_subject_concept(self) -> List[ConceptInfo]:
+        """获取所有可用的主题概念"""
         with Session() as session:
             subject_concepts = session.query(ConceptInfo).filter(*target_conditions).all()
         return subject_concepts
 
-    def update_concept_info(self):
+    def update_concept_info(self) -> List[str]:
+        """更新概念信息"""
         session = Session()
         try:
             request_types = {
@@ -128,7 +133,8 @@ class ConceptManager:
         finally:
             session.close()
 
-    def update_concept_stock_relation(self):
+    def update_concept_stock_relation(self) -> None:
+        """更新概念与股票的关系"""
         with Session() as session:
             # 查询 ConceptInfo 表中满足条件且在 ConceptStockRelation 表中没有对应记录的概念代码
             subquery = session.query(ConceptStockRelation.concept_code).distinct().subquery()
@@ -156,8 +162,8 @@ class ConceptManager:
             else:
                 logging.info("没有要更新的板块映射关系")
 
-    # 更新题材+行业板块日线数据截止至end_date
-    def update_concept_daily_data_until(self, end_date):
+    def update_concept_daily_data_until(self, end_date: str) -> None:
+        """更新题材+行业板块日线数据截止至end_date"""
         session = Session()
         try:
             concepts = self.concept_info_cache.values()
@@ -218,8 +224,8 @@ class ConceptManager:
 
         self._update_concept_trade_date()
     
-    # 更新题材+行业板块有效交易日期
-    def _update_concept_trade_date(self):
+    def _update_concept_trade_date(self) -> None:
+        """更新题材+行业板块有效交易日期"""
         session = Session()
         try:
             concepts = session.query(ConceptInfo).all()
@@ -241,8 +247,8 @@ class ConceptManager:
         finally:
             session.close()
 
-    # 查找在指定日期缺失的题材板块数据
-    def find_missing_concepts_for_date(self, trade_date):
+    def find_missing_concepts_for_date(self, trade_date: str) -> None:
+        """查找在指定日期缺失的题材板块数据"""
         session = Session()
         try:
             requested_codes = {
@@ -268,7 +274,8 @@ class ConceptManager:
         finally:
             session.close()
 
-    def find_concepts_with_missing_data(self):
+    def find_concepts_with_missing_data(self) -> None:
+        """查找缺失数据的板块"""
         session = Session()
         try:
             # Fetching the list of available concepts
@@ -311,7 +318,8 @@ class ConceptManager:
         finally:
             session.close()
 
-    def check_daily_data(self):
+    def check_daily_data(self) -> None:
+        """检查并修复日线数据"""
         session = Session()
         try:
             result = session.query(ConceptDailyData).filter(
