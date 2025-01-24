@@ -65,7 +65,7 @@ class StrategyVersion(StrategyBase):
     strategy_id = Column(Integer, ForeignKey('strategy_info.strategy_id'), primary_key=True)
     version_id = Column(Integer, primary_key=True)
     parameters = Column(JSONB, nullable=False)  # 使用 JSONB 存储策略参数
-    version_hash = Column(String(32), nullable=False, unique=True)  # MD5 哈希值，唯一标识版本
+    version_hash = Column(String(32), nullable=False)  # MD5 哈希值，唯一标识版本
     
     # 关系：每个策略版本属于一个策略
     strategy = relationship("StrategyInfo", back_populates="versions")
@@ -221,8 +221,7 @@ class ObservationVarMode(BaseModel):
         从 ObservationVariable 的 JSONB 数据转化为 ObservationVarMode 子类实例。
         """
         return cls(**observation_variable.variables)
-
-    
+  
 class StrategyTask(ABC):
     """
     通用策略任务基类，封装策略每日执行的通用流程。
@@ -560,12 +559,12 @@ class StrategyTask(ABC):
             assert self.subscribe_callback is not None, "subscribe_callback 不能为空"
             assert self.unsubscribe_callback is not None, "unsubscribe_callback 不能为空"
 
-
 class Strategy(ABC):
     def __init__(self, task_cls: Type['StrategyTask'], params: Type['StrategyParams'], mode: StrategyTaskMode = StrategyTaskMode.MODE_BACKTEST_LOCAL):
         super().__init__()
         self.run_mode = mode
         self.params = params
+        self.live_version_id = 0
 
         self.task_cls = task_cls
         assert task_cls is not None, "task_cls 不能为空"
@@ -594,36 +593,65 @@ class Strategy(ABC):
         
         # 计算参数哈希值
         params_md5 = self.params.to_md5()
-        
+
         with StrategySession() as session:
-            # 查询是否已存在相同参数版本
-            version_exists = session.query(StrategyVersion).filter(
+            # 使用 upsert 方式插入或更新 live_version_id 版本
+            live_version = session.query(StrategyVersion).filter(
                 StrategyVersion.strategy_id == self.strategy_id,
-                StrategyVersion.version_hash == params_md5
+                StrategyVersion.version_id == self.live_version_id
             ).first()
             
-            if not version_exists:
-                # 获取当前最大版本号
-                max_version = session.query(func.max(StrategyVersion.version_id)).filter(
-                    StrategyVersion.strategy_id == strategy.strategy_id
-                ).scalar() or 0
-                
-                # 创建新版本记录
+            if live_version:
+                # 如果存在则更新参数和哈希值
+                live_version.parameters = self.params.model_dump()
+                live_version.version_hash = params_md5
+                session.commit()
+                logging.info(f"已更新实时策略版本: {self.strategy_name()} v{self.live_version_id}")
+            else:
+                # 如果不存在则插入新版本记录
                 new_version = StrategyVersion(
-                    strategy_id=strategy.strategy_id,
-                    version_id=max_version + 1,
+                    strategy_id=self.strategy_id,
+                    version_id=self.live_version_id,
                     parameters=self.params.model_dump(),
                     version_hash=params_md5
                 )
                 session.add(new_version)
                 session.commit()
-                logging.info(f"已创建新策略版本: {strategy.strategy_name} v{max_version + 1}")
+                logging.info(f"已创建实时策略版本: {self.strategy_name()} v{self.live_version_id}")
+        
+        if mode == StrategyTaskMode.MODE_LIVE_EMQUANT:
+            self.version_id = self.live_version_id
+        else:
+            with StrategySession() as session:
+                # 查询是否已存在相同参数版本
+                version_exists = session.query(StrategyVersion).filter(
+                    StrategyVersion.strategy_id == self.strategy_id,
+                    StrategyVersion.version_hash == params_md5,
+                    StrategyVersion.version_id > 0
+                ).first()
                 
-                # 设置策略ID和版本ID
-                self.version_id = max_version + 1
-            else:
-                # 如果版本已存在，直接使用现有ID
-                self.version_id = version_exists.version_id
+                if not version_exists:
+                    # 获取当前最大版本号
+                    max_version = session.query(func.max(StrategyVersion.version_id)).filter(
+                        StrategyVersion.strategy_id == strategy.strategy_id
+                    ).scalar() or 0
+                    
+                    # 创建新版本记录
+                    new_version = StrategyVersion(
+                        strategy_id=strategy.strategy_id,
+                        version_id=max_version + 1,
+                        parameters=self.params.model_dump(),
+                        version_hash=params_md5
+                    )
+                    session.add(new_version)
+                    session.commit()
+                    logging.info(f"已创建新策略版本: {strategy.strategy_name} v{max_version + 1}")
+                    
+                    # 设置策略ID和版本ID
+                    self.version_id = max_version + 1
+                else:
+                    # 如果版本已存在，直接使用现有ID
+                    self.version_id = version_exists.version_id
 
         logging.info(f"策略已经创建: {self.strategy_name()} 版本v{self.version_id} 参数{self.params} mode {self.run_mode}")
 
@@ -648,7 +676,8 @@ class Strategy(ABC):
             # 查询当前参数对应的版本
             version = session.query(StrategyVersion).filter(
                 StrategyVersion.strategy_id == strategy.strategy_id,
-                StrategyVersion.version_hash == params_md5
+                StrategyVersion.version_hash == params_md5,
+                StrategyVersion.version_id > 0
             ).first()
             
             if not version:
