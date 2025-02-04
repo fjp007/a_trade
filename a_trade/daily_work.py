@@ -102,5 +102,9 @@ def main(today: str =None):
         merge_db_data_from_base_to_sync()
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        main()
     sys.exit(0)
